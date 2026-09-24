@@ -14,7 +14,7 @@ public class FreeContainers implements Action
 {
     ArrayList<Container> containers;
     NAlias pattern = null;
-    boolean excludeOutputBufferZones = false;
+    Integer excludedOutAreaId = null;
 
     public FreeContainers(ArrayList<Container> containers) {
         this.containers = containers;
@@ -26,14 +26,13 @@ public class FreeContainers implements Action
     }
 
     /**
-     * @param excludeOutputBufferZones see NContext#excludeOutputBufferZones - set true when
-     *                                  freeing containers found inside an Output Buffer Zone
-     *                                  itself, so their contents never get redistributed into
-     *                                  another buffer zone.
+     * @param excludedOutAreaId see NContext#excludedOutAreaId - set to the id of the area these
+     *                          containers were emptied from when that area is itself being
+     *                          unboxed, so its own items are never routed straight back into it.
      */
-    public FreeContainers(ArrayList<Container> containers, boolean excludeOutputBufferZones) {
+    public FreeContainers(ArrayList<Container> containers, Integer excludedOutAreaId) {
         this.containers = containers;
-        this.excludeOutputBufferZones = excludeOutputBufferZones;
+        this.excludedOutAreaId = excludedOutAreaId;
     }
 
     HashSet<String> targets = new HashSet<>();
@@ -42,7 +41,7 @@ public class FreeContainers implements Action
     public Results run(NGameUI gui) throws InterruptedException
     {
         NContext context = new NContext(gui);
-        context.excludeOutputBufferZones = excludeOutputBufferZones;
+        context.excludedOutAreaId = excludedOutAreaId;
 
         for (Container container : containers)
         {

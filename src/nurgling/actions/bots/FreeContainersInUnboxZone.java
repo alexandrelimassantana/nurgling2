@@ -26,6 +26,11 @@ public class FreeContainersInUnboxZone implements Action {
             return Results.ERROR("No unbox zone area found");
         }
 
+        // The zone being unboxed must never be picked as the destination for its own items -
+        // that would just put them right back where they came from instead of their real
+        // storage area, even if this zone also happens to have matching 'Put' entries.
+        context.excludedOutAreaId = unboxArea.id;
+
         Pair<Coord2d,Coord2d> area = unboxArea.getRCArea();
         ArrayList<Container> containers = new ArrayList<>();
 
@@ -37,7 +42,7 @@ public class FreeContainersInUnboxZone implements Action {
                 containers.add(cand);
             }
             if (!containers.isEmpty())
-                new FreeContainers(containers).run(gui);
+                new FreeContainers(containers, unboxArea.id).run(gui);
         }
 
         ArrayList<Gob> gobs;

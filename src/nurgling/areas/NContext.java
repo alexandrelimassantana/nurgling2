@@ -40,11 +40,12 @@ public class NContext {
     private NGameUI gui;
 
     /**
-     * When true, item-output resolution (addOutItem / resolveOutAreas) skips areas tagged as
-     * "Output Buffer Zone" - set by bots that unbox a buffer zone's own contents, so that
-     * redistribution never just moves items from one buffer zone into another.
+     * When set, item-output resolution (addOutItem / resolveOutAreas) skips this specific area
+     * id as a destination. Unboxing bots set this to the id of the area they are currently
+     * draining, so an area's own items are never routed straight back into itself instead of
+     * to their real storage.
      */
-    public boolean excludeOutputBufferZones = false;
+    public Integer excludedOutAreaId = null;
 
     private NGlobalCoord lastcoord;
 
@@ -1103,7 +1104,7 @@ public class NContext {
             NArea cand = gui.map.glob.map.areas.get(id);
             if(cand == null || !cand.containOut(name))
                 continue;
-            if(excludeOutputBufferZones && cand.isOutputBuffer())
+            if(excludedOutAreaId != null && cand.id == excludedOutAreaId)
                 continue;
             double dist = getDistanceToArea(cand, gui);
             if(dist == Double.MAX_VALUE)
