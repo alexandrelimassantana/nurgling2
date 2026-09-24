@@ -39,6 +39,13 @@ public class NContext {
     int counter = 0;
     private NGameUI gui;
 
+    /**
+     * When true, item-output resolution (addOutItem / resolveOutAreas) skips areas tagged as
+     * "Output Buffer Zone" - set by bots that unbox a buffer zone's own contents, so that
+     * redistribution never just moves items from one buffer zone into another.
+     */
+    public boolean excludeOutputBufferZones = false;
+
     private NGlobalCoord lastcoord;
 
     public static HashMap<String, String> contcaps = new HashMap<>();
@@ -1095,6 +1102,8 @@ public class NContext {
                 continue;
             NArea cand = gui.map.glob.map.areas.get(id);
             if(cand == null || !cand.containOut(name))
+                continue;
+            if(excludeOutputBufferZones && cand.isOutputBuffer())
                 continue;
             double dist = getDistanceToArea(cand, gui);
             if(dist == Double.MAX_VALUE)

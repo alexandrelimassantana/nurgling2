@@ -120,6 +120,7 @@ public class Specialisation extends Window
         silkmothBreeding,
         silkwormFeeding,
         unbox,
+        outputBuffer,
         picklingJars,
         smokedlog,
         waterForTrees,
@@ -222,6 +223,9 @@ public class Specialisation extends Window
 
         // unbox zone
         specialisation.add(new SpecialisationItem(SpecName.unbox.toString(),"Unbox Zone",Resource.loadsimg("nurgling/categories/unbox")));
+
+        // output buffer zone: temporary storage to unload crafted items into, itself unboxed later
+        specialisation.add(new SpecialisationItem(SpecName.outputBuffer.toString(),"Output Buffer Zone",Resource.loadsimg("nurgling/categories/output_buffer")));
 
         // pickling
         specialisation.add(new SpecialisationItem(SpecName.picklingJars.toString(),"Pickling Jars",Resource.loadsimg("nurgling/categories/picklingjar")));

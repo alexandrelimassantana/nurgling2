@@ -45,6 +45,21 @@ public class NArea
         return null;
     }
 
+    /**
+     * Whether this area is tagged as an "Output Buffer Zone": a temporary drop-off area for
+     * items unloaded from the inventory (e.g. autocrafting output) that is later unboxed and
+     * redistributed to the items' real storage areas. Buffer zones must never be picked as that
+     * redistribution target themselves (see NContext#excludeOutputBufferZones), or items would
+     * just bounce between buffers instead of reaching their final storage.
+     */
+    public boolean isOutputBuffer() {
+        for (Specialisation s : spec) {
+            if (s.name.equals(nurgling.widgets.Specialisation.SpecName.outputBuffer.toString()))
+                return true;
+        }
+        return false;
+    }
+
 
 
     public static class Specialisation
