@@ -3437,15 +3437,22 @@ public class VSpec {
 
     /**
      * Gets the seed name for a given tree resource path.
-     * 
+     *
      * @param treePath The resource path of the tree (e.g., "gfx/terobjs/trees/appletree")
      * @return The seed name if found, null otherwise
      */
     public static String getSeedForTree(String treePath) {
         ArrayList<String> products = object.get(treePath);
-        if (products != null && !products.isEmpty()) {
-            // Return the last item in the list (typically the seed)
-            return products.get(products.size() - 1);
+        if (products == null || products.isEmpty()) {
+            return null;
+        }
+        // Every tree's product list ends with its bark product (see HarvestState.getBarkProductName),
+        // so the seed is the last item that isn't a bark product, not simply the last item.
+        for (int i = products.size() - 1; i >= 0; i--) {
+            String product = products.get(i);
+            if (!HarvestState.isBarkProductName(product)) {
+                return product;
+            }
         }
         return null;
     }
