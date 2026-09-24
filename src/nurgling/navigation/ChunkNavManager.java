@@ -305,13 +305,26 @@ public class ChunkNavManager {
     /**
      * Plan a path to an area.
      * Returns the chunk-level path. PathFinder handles actual navigation within grids.
+     * Cliff edges are treated as blocked (see {@link #planToArea(NArea, boolean)}).
      */
     public ChunkPath planToArea(NArea area) {
+        return planToArea(area, true);
+    }
+
+    /**
+     * Plan a path to an area.
+     * @param avoidCliffs when true (the default via {@link #planToArea(NArea)}), cells observed
+     *                    as cliff edges are treated as blocked like any other obstruction. Pass
+     *                    false only to keep a caller's pre-existing, cliff-blind behavior (e.g.
+     *                    Forager's own route system already handles cliffs separately).
+     */
+    public ChunkPath planToArea(NArea area, boolean avoidCliffs) {
         if (!enabled || !initialized) return null;
 
         // Record all visible grids to ensure fresh data before planning
         forceRecordVisibleGrids();
 
+        planner.setAvoidCliffs(avoidCliffs);
         ChunkPath path = planner.planToArea(area);
         if (path == null) {
             return null;
@@ -327,22 +340,28 @@ public class ChunkNavManager {
         // The executor handles this case by navigating directly to the area
         return path;
     }
-    
+
     /**
      * Plan a path to a specific world coordinate.
      * Used for planning paths to specific corners of an area.
      * NOTE: Only works reliably within the same layer/area!
      */
     public ChunkPath planToCoord(haven.Coord2d worldCoord) {
+        return planToCoord(worldCoord, true);
+    }
+
+    /** @see #planToArea(NArea, boolean) for what avoidCliffs does. */
+    public ChunkPath planToCoord(haven.Coord2d worldCoord, boolean avoidCliffs) {
         if (!enabled || !initialized) return null;
 
         // Record all visible grids to ensure fresh data before planning
         forceRecordVisibleGrids();
 
+        planner.setAvoidCliffs(avoidCliffs);
         ChunkPath path = planner.planToCoord(worldCoord);
         return path;
     }
-    
+
     /**
      * Plan a path to a specific corner of an area using gridId + local coordinates.
      * This works correctly across different layers/areas.
@@ -350,11 +369,17 @@ public class ChunkNavManager {
      * @param cornerIndex 0=top-left, 1=bottom-right, 2=bottom-left, 3=top-right
      */
     public ChunkPath planToAreaCorner(nurgling.areas.NArea area, int cornerIndex) {
+        return planToAreaCorner(area, cornerIndex, true);
+    }
+
+    /** @see #planToArea(NArea, boolean) for what avoidCliffs does. */
+    public ChunkPath planToAreaCorner(nurgling.areas.NArea area, int cornerIndex, boolean avoidCliffs) {
         if (!enabled || !initialized) return null;
 
         // Record all visible grids to ensure fresh data before planning
         forceRecordVisibleGrids();
 
+        planner.setAvoidCliffs(avoidCliffs);
         ChunkPath path = planner.planToAreaCorner(area, cornerIndex);
         return path;
     }
@@ -366,11 +391,17 @@ public class ChunkNavManager {
      * @param localCoord Local tile coordinate within the grid
      */
     public ChunkPath planToGridCoord(long gridId, haven.Coord localCoord) {
+        return planToGridCoord(gridId, localCoord, true);
+    }
+
+    /** @see #planToArea(NArea, boolean) for what avoidCliffs does. */
+    public ChunkPath planToGridCoord(long gridId, haven.Coord localCoord, boolean avoidCliffs) {
         if (!enabled || !initialized) return null;
 
         // Record all visible grids to ensure fresh data before planning
         forceRecordVisibleGrids();
 
+        planner.setAvoidCliffs(avoidCliffs);
         ChunkPath path = planner.planToGridCoord(gridId, localCoord);
         return path;
     }

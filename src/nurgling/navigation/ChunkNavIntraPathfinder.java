@@ -49,6 +49,7 @@ public class ChunkNavIntraPathfinder {
 
     /**
      * Find a path between two local tile coordinates within a chunk.
+     * Cliff edges are cliff-blind (avoidCliffs=false) - see the overload for opting in.
      *
      * @param fromTile Starting point in local tile coordinates (0-99)
      * @param toTile   Target point in local tile coordinates (0-99)
@@ -56,6 +57,19 @@ public class ChunkNavIntraPathfinder {
      * @return IntraPath with the path if reachable, or empty path if not
      */
     public static IntraPath findPath(Coord fromTile, Coord toTile, ChunkNavData chunk) {
+        return findPath(fromTile, toTile, chunk, false);
+    }
+
+    /**
+     * Find a path between two local tile coordinates within a chunk.
+     *
+     * @param fromTile    Starting point in local tile coordinates (0-99)
+     * @param toTile      Target point in local tile coordinates (0-99)
+     * @param chunk       The chunk data containing walkability grid
+     * @param avoidCliffs when true, cells observed as cliff edges are treated as blocked
+     * @return IntraPath with the path if reachable, or empty path if not
+     */
+    public static IntraPath findPath(Coord fromTile, Coord toTile, ChunkNavData chunk, boolean avoidCliffs) {
         if (chunk == null) {
             return new IntraPath(Collections.emptyList(), false, Float.MAX_VALUE);
         }
@@ -69,7 +83,8 @@ public class ChunkNavIntraPathfinder {
             return new IntraPath(Collections.emptyList(), false, Float.MAX_VALUE);
         }
 
-        if (chunk.getWalkability(toCell.x, toCell.y) == 2) {
+        if (chunk.getWalkability(toCell.x, toCell.y) == 2 ||
+            (avoidCliffs && chunk.isCliffBlocked(toCell.x, toCell.y))) {
             // Destination is fully blocked
             return new IntraPath(Collections.emptyList(), false, Float.MAX_VALUE);
         }
@@ -82,13 +97,13 @@ public class ChunkNavIntraPathfinder {
         }
 
         // A* pathfinding on the cell grid
-        return aStarPath(fromCell, toCell, chunk);
+        return aStarPath(fromCell, toCell, chunk, avoidCliffs);
     }
 
     /**
      * A* pathfinding on the 200x200 cell grid (half-tile resolution).
      */
-    private static IntraPath aStarPath(Coord fromCell, Coord toCell, ChunkNavData chunk) {
+    private static IntraPath aStarPath(Coord fromCell, Coord toCell, ChunkNavData chunk, boolean avoidCliffs) {
         PriorityQueue<Node> openSet = new PriorityQueue<>(Comparator.comparingDouble(n -> n.f));
         Map<Coord, Node> allNodes = new HashMap<>();
         Set<Coord> closedSet = new HashSet<>();
@@ -121,7 +136,7 @@ public class ChunkNavIntraPathfinder {
 
             // Expand cardinal directions
             for (int[] dir : directions) {
-                expandNeighbor(current, dir[0], dir[1], 1.0f, toCell, chunk, openSet, allNodes, closedSet);
+                expandNeighbor(current, dir[0], dir[1], 1.0f, toCell, chunk, openSet, allNodes, closedSet, avoidCliffs);
             }
 
             // Expand diagonals (slightly higher cost, and only if both adjacent cardinals are walkable)
@@ -130,7 +145,7 @@ public class ChunkNavIntraPathfinder {
                 byte adj1 = chunk.getWalkability(current.pos.x + diag[0], current.pos.y);
                 byte adj2 = chunk.getWalkability(current.pos.x, current.pos.y + diag[1]);
                 if (adj1 <= 1 && adj2 <= 1) {
-                    expandNeighbor(current, diag[0], diag[1], 1.414f, toCell, chunk, openSet, allNodes, closedSet);
+                    expandNeighbor(current, diag[0], diag[1], 1.414f, toCell, chunk, openSet, allNodes, closedSet, avoidCliffs);
                 }
             }
         }
@@ -145,7 +160,7 @@ public class ChunkNavIntraPathfinder {
     private static void expandNeighbor(Node current, int dx, int dy, float baseCost,
                                        Coord toCell, ChunkNavData chunk,
                                        PriorityQueue<Node> openSet, Map<Coord, Node> allNodes,
-                                       Set<Coord> closedSet) {
+                                       Set<Coord> closedSet, boolean avoidCliffs) {
         Coord neighborPos = new Coord(current.pos.x + dx, current.pos.y + dy);
 
         if (!isValidCell(neighborPos)) return;
@@ -153,6 +168,7 @@ public class ChunkNavIntraPathfinder {
 
         byte walkability = chunk.getWalkability(neighborPos.x, neighborPos.y);
         if (walkability != 0) return; // Blocked (only 0 is walkable)
+        if (avoidCliffs && chunk.isCliffBlocked(neighborPos.x, neighborPos.y)) return;
 
         // Half-tile resolution - uniform cost per cell
         float tentativeG = current.g + baseCost;

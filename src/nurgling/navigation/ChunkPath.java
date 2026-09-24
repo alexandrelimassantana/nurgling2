@@ -16,6 +16,11 @@ public class ChunkPath {
     public float confidence;       // Min confidence along path
     public boolean requiresPortals;
 
+    // Whether this path was planned (and should be executed) treating cliff edges as blocked.
+    // Set by the planner that produced this path; the executor and any re-planning must
+    // preserve it so a walk stays cliff-aware (or not) for its whole lifetime.
+    public boolean avoidCliffs = false;
+
     /**
      * Detailed tile-level path segments.
      * Each segment is a list of TileStep from one waypoint to the next.

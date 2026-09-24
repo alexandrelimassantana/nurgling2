@@ -21,12 +21,21 @@ public class UnifiedTilePathfinder {
     // Chunks where portal traversal has failed - avoid using portals on these chunks
     private Set<Long> excludedPortalChunks = Collections.emptySet();
 
+    // Opt-in: when true, cells observed as cliff edges (Ridges.brokenp) are treated as blocked,
+    // same as any other obstruction. Defaults to false to keep existing callers' behavior
+    // (e.g. Forager's ChunkNav bridging hop) unchanged.
+    private boolean avoidCliffs = false;
+
     public UnifiedTilePathfinder(ChunkNavGraph graph) {
         this.graph = graph;
     }
 
     public void setExcludedPortalChunks(Set<Long> excluded) {
         this.excludedPortalChunks = excluded != null ? excluded : Collections.emptySet();
+    }
+
+    public void setAvoidCliffs(boolean avoidCliffs) {
+        this.avoidCliffs = avoidCliffs;
     }
 
     /**
@@ -49,7 +58,7 @@ public class UnifiedTilePathfinder {
                 int cx = cellX + dx;
                 int cy = cellY + dy;
                 if (cx >= 0 && cx < CELLS_PER_EDGE && cy >= 0 && cy < CELLS_PER_EDGE) {
-                    if (chunk.walkability[cx][cy] == 0) {
+                    if (chunk.walkability[cx][cy] == 0 && (!avoidCliffs || !chunk.cliffBlocked[cx][cy])) {
                         return true;  // At least one sub-cell is walkable
                     }
                 }
@@ -73,6 +82,15 @@ public class UnifiedTilePathfinder {
      * @return World coordinate of a walkable cell's center, or tile center if no cell info
      */
     public static haven.Coord2d findWalkableCellWorldCoord(ChunkNavData chunk, int tileX, int tileY, haven.Coord worldTileOrigin) {
+        return findWalkableCellWorldCoord(chunk, tileX, tileY, worldTileOrigin, false);
+    }
+
+    /**
+     * Same as {@link #findWalkableCellWorldCoord(ChunkNavData, int, int, haven.Coord)}, but when
+     * avoidCliffs is true, a cell observed as a cliff edge is treated as not walkable so the
+     * chosen sub-cell target never sits on a cliff face.
+     */
+    public static haven.Coord2d findWalkableCellWorldCoord(ChunkNavData chunk, int tileX, int tileY, haven.Coord worldTileOrigin, boolean avoidCliffs) {
         if (chunk == null || worldTileOrigin == null) {
             // Fallback to tile center
             haven.Coord worldTile = worldTileOrigin != null ? worldTileOrigin.add(tileX, tileY) : new haven.Coord(tileX, tileY);
@@ -93,7 +111,7 @@ public class UnifiedTilePathfinder {
             int cx = cellX + offset[0];
             int cy = cellY + offset[1];
             if (cx >= 0 && cx < CELLS_PER_EDGE && cy >= 0 && cy < CELLS_PER_EDGE) {
-                if (chunk.walkability[cx][cy] == 0) {
+                if (chunk.walkability[cx][cy] == 0 && (!avoidCliffs || !chunk.cliffBlocked[cx][cy])) {
                     // Count how many of the 8 neighbors are also walkable (higher = safer)
                     int score = 0;
                     for (int dx = -1; dx <= 1; dx++) {
@@ -102,7 +120,7 @@ public class UnifiedTilePathfinder {
                             int nx = cx + dx;
                             int ny = cy + dy;
                             if (nx >= 0 && nx < CELLS_PER_EDGE && ny >= 0 && ny < CELLS_PER_EDGE) {
-                                if (chunk.walkability[nx][ny] == 0) {
+                                if (chunk.walkability[nx][ny] == 0 && (!avoidCliffs || !chunk.cliffBlocked[nx][ny])) {
                                     score++;
                                 }
                             }
@@ -791,7 +809,7 @@ public class UnifiedTilePathfinder {
                     // Use cell-level coordinate to target a walkable cell within the tile
                     // This prevents targeting blocked parts of partially-walkable tiles
                     haven.Coord2d cellWorldCoord = findWalkableCellWorldCoord(
-                        currentChunk, step.localCoord.x, step.localCoord.y, currentChunk.worldTileOrigin);
+                        currentChunk, step.localCoord.x, step.localCoord.y, currentChunk.worldTileOrigin, chunkPath.avoidCliffs);
                     currentSegment.steps.add(new ChunkPath.TileStep(step.localCoord, cellWorldCoord));
                 }
             }

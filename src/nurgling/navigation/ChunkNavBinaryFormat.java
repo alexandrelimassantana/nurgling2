@@ -15,6 +15,7 @@ import static nurgling.navigation.ChunkNavConfig.*;
  * - Header (64 bytes): version, flags, gridId, timestamps, neighbors
  * - Walkability grid (10,000 bytes): 40,000 cells at 2 bits each
  * - Observed grid (5,000 bytes): 40,000 cells at 1 bit each
+ * - Cliff-blocked grid (5,000 bytes, V3+): 40,000 cells at 1 bit each
  * - Edge arrays (100 bytes): 800 booleans at 1 bit each
  * - Portals (variable): count + portal data
  * - Connected chunks (variable): count + gridIds
@@ -28,7 +29,8 @@ public class ChunkNavBinaryFormat {
     // Current binary format version
     // V1: original format (64-byte header without instanceId)
     // V2: added instanceId (8 bytes) after neighbors, header now 72 bytes
-    public static final short BINARY_VERSION = 2;
+    // V3: added cliff-blocked grid (1 bit per cell) after the observed grid
+    public static final short BINARY_VERSION = 3;
 
     // Header size in bytes (V2: 72 bytes with instanceId)
     public static final int HEADER_SIZE = 72;
@@ -36,6 +38,7 @@ public class ChunkNavBinaryFormat {
     // Grid sizes
     public static final int WALKABILITY_BYTES = CELLS_PER_EDGE * CELLS_PER_EDGE / 4; // 2 bits per cell
     public static final int OBSERVED_BYTES = CELLS_PER_EDGE * CELLS_PER_EDGE / 8;    // 1 bit per cell
+    public static final int CLIFF_BYTES = CELLS_PER_EDGE * CELLS_PER_EDGE / 8;       // 1 bit per cell
     public static final int EDGE_BYTES = (4 * CELLS_PER_EDGE) / 8;                   // 4 edges, 1 bit per point
 
     // Layer byte values
@@ -90,6 +93,9 @@ public class ChunkNavBinaryFormat {
 
         // Write observed grid (bit-packed, 1 bit per cell)
         writeObservedGrid(chunk.observed, out);
+
+        // Write cliff-blocked grid (bit-packed, 1 bit per cell) - V3+
+        writeObservedGrid(chunk.cliffBlocked, out);
 
         // Write edge arrays (bit-packed, 1 bit per point)
         writeEdges(chunk, out);
@@ -158,6 +164,12 @@ public class ChunkNavBinaryFormat {
 
         // Read observed grid
         readObservedGrid(in, chunk.observed);
+
+        // Read cliff-blocked grid - V3+ only; V1/V2 files leave it all-false (unknown/no cliff),
+        // matching the pre-V3 behavior where nothing checked for cliffs at all.
+        if (version >= 3) {
+            readObservedGrid(in, chunk.cliffBlocked);
+        }
 
         // Read edge arrays
         readEdges(in, chunk);

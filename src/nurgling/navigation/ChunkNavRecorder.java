@@ -1,6 +1,7 @@
 package nurgling.navigation;
 
 import haven.*;
+import haven.resutil.Ridges;
 import nurgling.NGameUI;
 import nurgling.NHitBox;
 import nurgling.NUtils;
@@ -201,6 +202,10 @@ public class ChunkNavRecorder {
                 } else {
                     chunk.walkability[cx][cy] = 0;  // Walkable
                 }
+
+                // Cliff status only matters for otherwise-walkable cells - already-blocked
+                // cells are excluded regardless of it.
+                chunk.cliffBlocked[cx][cy] = (!terrainBlocked && !gobBlocked) && isTileCliff(mcache, worldTile);
             }
         }
     }
@@ -339,6 +344,10 @@ public class ChunkNavRecorder {
                 } else {
                     chunk.walkability[cx][cy] = 0;  // Walkable
                 }
+
+                // Cliff status only matters for otherwise-walkable cells - already-blocked
+                // cells are excluded regardless of it.
+                chunk.cliffBlocked[cx][cy] = (!terrainBlocked && !gobBlocked) && isTileCliff(mcache, worldTile);
             }
         }
     }
@@ -367,6 +376,23 @@ public class ChunkNavRecorder {
             return false;
         } catch (Exception e) {
             return true; // Tile not loaded = blocked (safer default)
+        }
+    }
+
+    /**
+     * Check whether a tile sits at a cliff edge (broken ridge, i.e. an impassable height
+     * discontinuity). This is independent of {@link #isTileBlocked} - a cliff tile has an
+     * ordinary walkable tileset (grass, dirt, etc.), it's just not actually crossable.
+     * Recorded separately into {@link ChunkNavData#cliffBlocked} so existing walkability-only
+     * consumers are unaffected; only callers that opt into cliff-awareness check it.
+     */
+    private boolean isTileCliff(MCache mcache, Coord tileCoord) {
+        try {
+            return Ridges.brokenp(mcache, tileCoord);
+        } catch (Loading l) {
+            return false; // Unloaded tile - unknown, not a confirmed cliff
+        } catch (Exception e) {
+            return false;
         }
     }
 

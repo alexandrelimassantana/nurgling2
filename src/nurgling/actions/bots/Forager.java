@@ -221,7 +221,9 @@ public class Forager implements Action {
                 ChunkNavManager chunkNav = ((NMapView) gui.map).getChunkNavManager();
                 if (chunkNav != null && chunkNav.isInitialized()) {
                     gui.msg("Forager: not on the route's segment - trying ChunkNav to its first waypoint");
-                    ChunkPath cp = chunkNav.planToGridCoord(firstWp.gridId, firstWp.localTile);
+                    // avoidCliffs=false: Forager already routes around cliffs itself (CliffCorridorChecker /
+                    // ForagerRouteConstraints), so this bridging hop keeps its old, cliff-blind ChunkNav behavior.
+                    ChunkPath cp = chunkNav.planToGridCoord(firstWp.gridId, firstWp.localTile, false);
                     if (cp != null && chunkNav.navigateWithPath(cp, null, gui).IsSuccess()) {
                         path.generateSections();
                     }

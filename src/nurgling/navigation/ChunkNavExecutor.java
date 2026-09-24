@@ -743,7 +743,7 @@ public class ChunkNavExecutor implements Action {
             // Compute waypoint targeting a specific walkable cell within the tile
             // (tile center may be blocked if only part of the 2x2 cell block is walkable)
             Coord2d waypoint = UnifiedTilePathfinder.findWalkableCellWorldCoord(
-                segmentChunk, targetStep.localCoord.x, targetStep.localCoord.y, currentWorldTileOrigin);
+                segmentChunk, targetStep.localCoord.x, targetStep.localCoord.y, currentWorldTileOrigin, path.avoidCliffs);
 
             double distToWaypoint = player.rc.dist(waypoint);
 
@@ -768,7 +768,7 @@ public class ChunkNavExecutor implements Action {
                             targetIndex = scanIdx;
                             targetStep = scanStep;
                             waypoint = UnifiedTilePathfinder.findWalkableCellWorldCoord(
-                                segmentChunk, targetStep.localCoord.x, targetStep.localCoord.y, currentWorldTileOrigin);
+                                segmentChunk, targetStep.localCoord.x, targetStep.localCoord.y, currentWorldTileOrigin, path.avoidCliffs);
                             foundWalkable = true;
                             break;
                         }
@@ -804,7 +804,7 @@ public class ChunkNavExecutor implements Action {
 
                 // Compute targeting walkable cell within tile (not tile center)
                 Coord2d midWaypoint = UnifiedTilePathfinder.findWalkableCellWorldCoord(
-                    segmentChunk, midStep.localCoord.x, midStep.localCoord.y, currentWorldTileOrigin);
+                    segmentChunk, midStep.localCoord.x, midStep.localCoord.y, currentWorldTileOrigin, path.avoidCliffs);
 
                 double midDist = player.rc.dist(midWaypoint);
                 if (midDist < tileSize * 1.5) continue;
@@ -831,7 +831,7 @@ public class ChunkNavExecutor implements Action {
 
                     // Compute targeting walkable cell within tile (not tile center)
                     Coord2d singleWaypoint = UnifiedTilePathfinder.findWalkableCellWorldCoord(
-                        segmentChunk, singleStep.localCoord.x, singleStep.localCoord.y, currentWorldTileOrigin);
+                        segmentChunk, singleStep.localCoord.x, singleStep.localCoord.y, currentWorldTileOrigin, path.avoidCliffs);
 
                     double singleDist = player.rc.dist(singleWaypoint);
                     if (singleDist < tileSize * 1.5) {
@@ -1089,7 +1089,7 @@ public class ChunkNavExecutor implements Action {
                                         targetLocal.y >= 0 && targetLocal.y < CHUNK_SIZE;
 
             if (targetInSameChunk) {
-                ChunkNavIntraPathfinder.IntraPath intraPath = ChunkNavIntraPathfinder.findPath(playerLocal, targetLocal, chunk);
+                ChunkNavIntraPathfinder.IntraPath intraPath = ChunkNavIntraPathfinder.findPath(playerLocal, targetLocal, chunk, path.avoidCliffs);
 
                 if (!intraPath.reachable) {
                     return Results.FAIL();
@@ -1340,6 +1340,8 @@ public class ChunkNavExecutor implements Action {
 
         ChunkNavPlanner planner = new ChunkNavPlanner(graph);
         planner.setExcludedPortalChunks(failedPortalChunks);
+        // Keep the re-plan consistent with how this executor's original path was planned.
+        planner.setAvoidCliffs(path.avoidCliffs);
         ChunkPath newPath = planner.planToArea(targetArea);
 
         if (newPath == null || newPath.isEmpty()) {

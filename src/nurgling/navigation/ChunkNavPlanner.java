@@ -20,6 +20,10 @@ public class ChunkNavPlanner {
     private final ChunkNavGraph graph;
     private final UnifiedTilePathfinder unifiedPathfinder;
 
+    // Opt-in: see UnifiedTilePathfinder.avoidCliffs. Propagated onto every ChunkPath this
+    // planner produces so the executor (and any re-plan) stays consistent with how it was planned.
+    private boolean avoidCliffs = false;
+
     public ChunkNavPlanner(ChunkNavGraph graph) {
         this.graph = graph;
         this.unifiedPathfinder = new UnifiedTilePathfinder(graph);
@@ -33,6 +37,15 @@ public class ChunkNavPlanner {
         if (excludedChunks != null && !excludedChunks.isEmpty()) {
             this.unifiedPathfinder.setExcludedPortalChunks(excludedChunks);
         }
+    }
+
+    /**
+     * When true, treat cells observed as cliff edges as blocked, same as any other obstruction.
+     * Defaults to false to preserve existing callers' behavior.
+     */
+    public void setAvoidCliffs(boolean avoidCliffs) {
+        this.avoidCliffs = avoidCliffs;
+        this.unifiedPathfinder.setAvoidCliffs(avoidCliffs);
     }
 
     /**
@@ -50,7 +63,7 @@ public class ChunkNavPlanner {
                 int cx = cellX + dx;
                 int cy = cellY + dy;
                 if (cx >= 0 && cx < CELLS_PER_EDGE && cy >= 0 && cy < CELLS_PER_EDGE) {
-                    if (chunk.walkability[cx][cy] == 0) {
+                    if (chunk.walkability[cx][cy] == 0 && (!avoidCliffs || !chunk.cliffBlocked[cx][cy])) {
                         return true;
                     }
                 }
@@ -94,6 +107,7 @@ public class ChunkNavPlanner {
 
         // Convert to ChunkPath with segments
         ChunkPath path = new ChunkPath();
+        path.avoidCliffs = this.avoidCliffs;
         unifiedPath.populateChunkPath(path, graph);
 
         // Truncate path at first tile that enters the target area
@@ -142,11 +156,12 @@ public class ChunkNavPlanner {
 
         // Convert to ChunkPath with segments
         ChunkPath path = new ChunkPath();
+        path.avoidCliffs = this.avoidCliffs;
         unifiedPath.populateChunkPath(path, graph);
 
         return path;
     }
-    
+
     /**
      * Plan a path to a specific corner of an area using gridId + local coordinates.
      * This works correctly across different layers/areas because it uses gridId directly.
@@ -232,6 +247,7 @@ public class ChunkNavPlanner {
 
             if (unifiedPath != null && unifiedPath.reachable) {
                 ChunkPath path = new ChunkPath();
+                path.avoidCliffs = this.avoidCliffs;
                 unifiedPath.populateChunkPath(path, graph);
 
                 // Keep the shortest path
@@ -289,6 +305,7 @@ public class ChunkNavPlanner {
 
         // Convert to ChunkPath with segments
         ChunkPath path = new ChunkPath();
+        path.avoidCliffs = this.avoidCliffs;
         unifiedPath.populateChunkPath(path, graph);
 
         return path;

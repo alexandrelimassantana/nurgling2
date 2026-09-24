@@ -46,6 +46,13 @@ public class ChunkNavData {
     // Values: 0 = walkable, 1 = partially blocked, 2 = fully blocked
     public byte[][] walkability = new byte[CELLS_PER_EDGE][CELLS_PER_EDGE];
 
+    // Cliff-edge grid (same half-tile resolution as walkability).
+    // true = a broken ridge (impassable cliff face, see haven.resutil.Ridges.brokenp) was observed here.
+    // Kept separate from walkability (rather than folding into it) because most pathfinders in this
+    // codebase are intentionally cliff-blind for backward compatibility - only callers that opt in
+    // via avoidCliffs consult this grid. Defaults to false (unknown/no cliff), same as the old behavior.
+    public boolean[][] cliffBlocked = new boolean[CELLS_PER_EDGE][CELLS_PER_EDGE];
+
     // Observed grid - tracks which tiles have been visually observed
     // true = tile was within visible range when recorded, false = not yet observed
     public boolean[][] observed = new boolean[CELLS_PER_EDGE][CELLS_PER_EDGE];
@@ -180,6 +187,16 @@ public class ChunkNavData {
             return false;
         }
         return observed[cx][cy];
+    }
+
+    /**
+     * Check if a cell was observed to be at a cliff edge (broken ridge).
+     */
+    public boolean isCliffBlocked(int cx, int cy) {
+        if (cx < 0 || cx >= CELLS_PER_EDGE || cy < 0 || cy >= CELLS_PER_EDGE) {
+            return false;
+        }
+        return cliffBlocked[cx][cy];
     }
 
     /**
@@ -350,6 +367,15 @@ public class ChunkNavData {
         }
         obj.put("observed", obsArr);
 
+        // Cliff-blocked as flat array (optional - only opt-in avoidCliffs callers use it)
+        JSONArray cliffArr = new JSONArray();
+        for (int x = 0; x < CELLS_PER_EDGE; x++) {
+            for (int y = 0; y < CELLS_PER_EDGE; y++) {
+                cliffArr.put(cliffBlocked[x][y] ? 1 : 0);
+            }
+        }
+        obj.put("cliffBlocked", cliffArr);
+
         // Edges
         obj.put("northEdge", edgeToJson(northEdge));
         obj.put("southEdge", edgeToJson(southEdge));
@@ -445,6 +471,17 @@ public class ChunkNavData {
             for (int x = 0; x < CELLS_PER_EDGE; x++) {
                 for (int y = 0; y < CELLS_PER_EDGE; y++) {
                     data.observed[x][y] = data.walkability[x][y] < 2;
+                }
+            }
+        }
+
+        // Cliff-blocked (optional for backwards compatibility - defaults to false/unknown)
+        if (obj.has("cliffBlocked")) {
+            JSONArray cliffArr = obj.getJSONArray("cliffBlocked");
+            idx = 0;
+            for (int x = 0; x < CELLS_PER_EDGE; x++) {
+                for (int y = 0; y < CELLS_PER_EDGE; y++) {
+                    data.cliffBlocked[x][y] = cliffArr.getInt(idx++) != 0;
                 }
             }
         }
