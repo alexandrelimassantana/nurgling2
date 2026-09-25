@@ -46,10 +46,17 @@ a parallel push). It was split as follows:
     (push --delete returned HTTP 403 — looked like a token-scope restriction,
     not a real permission error, since normal pushes work). It may still exist
     as a stale remote branch; delete manually if desired.
-- **`mybase`** — tracks upstream `master`, with both feature branches merged in
-  via `--no-ff` merges (not rebased flat). Rebuild this branch (reset to
-  `origin/master`, re-merge both feature branches) rather than trying to
-  fast-forward it whenever the feature branches change.
+- **`mybase`** — tracks upstream `master`, plus both feature branches' commits.
+  Originally built with `--no-ff` merges, but rebuilt on 2026-09-25 as a fully
+  linear history with **no merge commits of our own** (the user asked for
+  merge commits to be eliminated so history reads as a flat sequence of the
+  additions from each branch). Rebuild recipe: both feature branches are kept
+  rebased directly onto `origin/master` (linear, disjoint files, no overlap),
+  so `mybase` is just `git checkout -B mybase origin/autocraft-output-categories`
+  followed by `git cherry-pick origin/master..origin/feat/compenent-crafter/light-action`.
+  Verify with `git diff <old-mybase> <new-mybase> --stat` (should be empty)
+  before force-pushing. Do NOT use `git merge --no-ff` for this branch anymore
+  — keep it linear going forward, including after future upstream syncs.
 - A "chicken configurations" change was asked about but does not exist
   anywhere in this repo's history (checked all commits on this branch and
   every other remote branch at the time). User confirmed: skip it. Don't
@@ -64,8 +71,11 @@ a parallel push). It was split as follows:
    mirror of master).
 4. `git fetch origin master`, then rebase each feature branch:
    `git checkout <branch> && git rebase origin/master`.
-5. Rebuild `mybase`: `git checkout -B mybase origin/master`, then
-   `git merge --no-ff` each feature branch in turn.
+5. Rebuild `mybase` as a linear history (no merge commits — see "Branch
+   organization decisions" above): `git checkout -B mybase origin/<first-feature-branch>`,
+   then `git cherry-pick origin/master..origin/<each-other-feature-branch>` in
+   turn. Only works cleanly while the feature branches touch disjoint files;
+   if they start overlapping, cherry-picks may need conflict resolution.
 6. Push all three with `--force-with-lease` (they're rewritten histories).
 
 No PRs were open against any of these branches at the time of these rewrites,
