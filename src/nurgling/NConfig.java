@@ -134,7 +134,7 @@ public class NConfig
         inventoryRightPanelMode,
         showTerrainName,
         validateAllCropsBeforeHarvest,
-        skipButcherInKFC,
+        chickenProcessingLevel,
         skipPluckingCocksInKFC,
         skipButcherInDuck,
         skipPluckingDrakesInDuck,
@@ -419,7 +419,7 @@ public class NConfig
         conf.put(Key.lockDecals, false);
         conf.put(Key.fillCompostWithSwill, false);
         conf.put(Key.ignoreStrawInFarmers, false);
-        conf.put(Key.skipButcherInKFC, false);
+        conf.put(Key.chickenProcessingLevel, 4);
         conf.put(Key.skipPluckingCocksInKFC, false);
         conf.put(Key.skipButcherInDuck, false);
         conf.put(Key.skipPluckingDrakesInDuck, false);

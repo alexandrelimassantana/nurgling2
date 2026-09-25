@@ -57,6 +57,12 @@ public class KFC implements Action {
 
     // Maximum chicks per incubator
     private static final int MAX_CHICKS_PER_INCUBATOR = 24;
+
+    // How far the "chickenProcessingLevel" config should carry a butchered chicken
+    private static final int LEVEL_WRING_NECK = 1;
+    private static final int LEVEL_PLUCK = 2;
+    private static final int LEVEL_CLEAN = 3;
+    private static final int LEVEL_BUTCHER = 4;
     
     // Comparator for sorting incubators by quality
     Comparator<IncubatorInfo> incubatorComparator = (o1, o2) -> Double.compare(o1.chickenQuality, o2.chickenQuality);
@@ -625,10 +631,14 @@ public class KFC implements Action {
         WItem deadChicken = gui.getInventory().getItem(new NAlias(deadType));
         if (deadChicken == null) return;
 
+        Integer levelConf = (Integer) NConfig.get(NConfig.Key.chickenProcessingLevel);
+        int level = levelConf != null ? levelConf : LEVEL_BUTCHER;
+
         Boolean skipPluckCocks = (Boolean) NConfig.get(NConfig.Key.skipPluckingCocksInKFC);
         boolean isCock = "Dead Cock".equals(deadType);
-        if (skipPluckCocks != null && skipPluckCocks && isCock) {
-            // Leave as Dead Cock for creamy cock recipe
+        if (level < LEVEL_PLUCK || (skipPluckCocks != null && skipPluckCocks && isCock)) {
+            // Leave as Dead Cock/Hen: either the configured process stops here, or
+            // (for cocks) it's kept whole for the creamy cock recipe.
         } else {
             new SelectFlowerAction("Pluck", deadChicken).run(gui);
             NUtils.addTask(new WaitItems((NInventory) gui.maininv, new NAlias("Plucked Chicken"), 1));
@@ -636,25 +646,26 @@ public class KFC implements Action {
             WItem plucked = gui.getInventory().getItem(new NAlias("Plucked Chicken"));
             if (plucked == null) return;
 
-            new SelectFlowerAction("Clean", plucked).run(gui);
-            NUtils.addTask(new WaitItems((NInventory) gui.maininv, new NAlias("Cleaned Chicken"), 1));
+            if (level >= LEVEL_CLEAN) {
+                new SelectFlowerAction("Clean", plucked).run(gui);
+                NUtils.addTask(new WaitItems((NInventory) gui.maininv, new NAlias("Cleaned Chicken"), 1));
 
-            WItem cleaned = gui.getInventory().getItem(new NAlias("Cleaned Chicken"));
-            if (cleaned == null) return;
+                WItem cleaned = gui.getInventory().getItem(new NAlias("Cleaned Chicken"));
+                if (cleaned == null) return;
 
-            Boolean skipButcher = (Boolean) NConfig.get(NConfig.Key.skipButcherInKFC);
-            if (skipButcher == null || !skipButcher) {
-                new SelectFlowerAction("Butcher", cleaned).run(gui);
-                NUtils.addTask(new NTask() {
-                    @Override
-                    public boolean check() {
-                        try {
-                            return gui.getInventory().getItems(new NAlias("Cleaned Chicken")).isEmpty();
-                        } catch (InterruptedException e) {
-                            return false;
+                if (level >= LEVEL_BUTCHER) {
+                    new SelectFlowerAction("Butcher", cleaned).run(gui);
+                    NUtils.addTask(new NTask() {
+                        @Override
+                        public boolean check() {
+                            try {
+                                return gui.getInventory().getItems(new NAlias("Cleaned Chicken")).isEmpty();
+                            } catch (InterruptedException e) {
+                                return false;
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
         }
 

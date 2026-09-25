@@ -12,7 +12,8 @@ public class FarmingSettingsPanel extends Panel {
     private CheckBox ignoreStrawInFarmers;
     private CheckBox autoEquipTravellersSacksCheck;
     private CheckBox validateAllCropsBeforeHarvestCheck;
-    private CheckBox skipButcherInKFCCheck;
+    private Label chickenProcessingLevelLabel;
+    private HSlider chickenProcessingLevelSlider;
     private CheckBox skipPluckingCocksInKFCCheck;
     private CheckBox skipButcherInDuckCheck;
     private CheckBox skipPluckingDrakesInDuckCheck;
@@ -78,13 +79,16 @@ public class FarmingSettingsPanel extends Panel {
         add(validateAllCropsBeforeHarvestCheck, new Coord(margin, y));
         y += UI.scale(28);
 
-        skipButcherInKFCCheck = new CheckBox(L10n.get("farming.skip_butcher_kfc")) {
-            public void set(boolean val) {
-                a = val;
+        chickenProcessingLevelLabel = add(new Label(L10n.get("farming.chicken_processing_level") + " " + chickenStageName(4)),
+                new Coord(margin, y));
+        y += UI.scale(20);
+
+        chickenProcessingLevelSlider = new HSlider(UI.scale(150), 1, 4, 4) {
+            public void changed() {
+                chickenProcessingLevelLabel.settext(L10n.get("farming.chicken_processing_level") + " " + chickenStageName(val));
             }
         };
-
-        add(skipButcherInKFCCheck, new Coord(margin, y));
+        add(chickenProcessingLevelSlider, new Coord(margin, y));
         y += UI.scale(28);
 
         skipPluckingCocksInKFCCheck = new CheckBox(L10n.get("farming.skip_pluck_cocks_kfc")) {
@@ -138,6 +142,15 @@ public class FarmingSettingsPanel extends Panel {
         add(yEntry, new Coord(margin, y));
     }
 
+    private static String chickenStageName(int level) {
+        switch (level) {
+            case 1: return L10n.get("farming.chicken_stage_wring_neck");
+            case 2: return L10n.get("farming.chicken_stage_pluck");
+            case 3: return L10n.get("farming.chicken_stage_clean");
+            default: return L10n.get("farming.chicken_stage_butcher");
+        }
+    }
+
     @Override
     public void load() {
         Boolean refill = (Boolean) NConfig.get(NConfig.Key.harvestautorefill);
@@ -158,8 +171,10 @@ public class FarmingSettingsPanel extends Panel {
         Boolean validateAllCrops = (Boolean) NConfig.get(NConfig.Key.validateAllCropsBeforeHarvest);
         validateAllCropsBeforeHarvestCheck.a = validateAllCrops != null && validateAllCrops;
 
-        Boolean skipButcher = (Boolean) NConfig.get(NConfig.Key.skipButcherInKFC);
-        skipButcherInKFCCheck.a = skipButcher != null && skipButcher;
+        Integer chickenLevel = (Integer) NConfig.get(NConfig.Key.chickenProcessingLevel);
+        int chickenLevelVal = chickenLevel != null ? chickenLevel : 4;
+        chickenProcessingLevelSlider.val = chickenLevelVal;
+        chickenProcessingLevelLabel.settext(L10n.get("farming.chicken_processing_level") + " " + chickenStageName(chickenLevelVal));
 
         Boolean skipPluckCocks = (Boolean) NConfig.get(NConfig.Key.skipPluckingCocksInKFC);
         skipPluckingCocksInKFCCheck.a = skipPluckCocks != null && skipPluckCocks;
@@ -185,7 +200,7 @@ public class FarmingSettingsPanel extends Panel {
         NConfig.set(NConfig.Key.fillCompostWithSwill, fillCompostWithSwill.a);
         NConfig.set(NConfig.Key.autoEquipTravellersSacks, autoEquipTravellersSacksCheck.a);
         NConfig.set(NConfig.Key.validateAllCropsBeforeHarvest, validateAllCropsBeforeHarvestCheck.a);
-        NConfig.set(NConfig.Key.skipButcherInKFC, skipButcherInKFCCheck.a);
+        NConfig.set(NConfig.Key.chickenProcessingLevel, chickenProcessingLevelSlider.val);
         NConfig.set(NConfig.Key.skipPluckingCocksInKFC, skipPluckingCocksInKFCCheck.a);
         NConfig.set(NConfig.Key.skipButcherInDuck, skipButcherInDuckCheck.a);
         NConfig.set(NConfig.Key.skipPluckingDrakesInDuck, skipPluckingDrakesInDuckCheck.a);
