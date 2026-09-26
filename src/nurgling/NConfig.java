@@ -271,7 +271,11 @@ public class NConfig
         // Localization
         language,
         // Calculators window: cheese rack calculator rows and stage-hour overrides (JSON string)
-        cheeseRackCalculator
+        cheeseRackCalculator,
+        // Forage Tracker: marks a map location once a tracked forageable's quality clears its threshold
+        forageTrackerEnabled,
+        forageTrackerConf,
+        forageTrackerMarkRadius
     }
 
     public enum BBDisplayMode
@@ -310,6 +314,9 @@ public class NConfig
         conf.put(Key.showStackOverlay, true);
         conf.put(Key.autoDropper, false);
         conf.put(Key.dropConf, new JSONArray());
+        conf.put(Key.forageTrackerEnabled, false);
+        conf.put(Key.forageTrackerConf, new JSONArray());
+        conf.put(Key.forageTrackerMarkRadius, 100);
         conf.put(Key.is_real_time, true);
         conf.put(Key.numbelts, 3);
         conf.put(Key.showCropStage, false);

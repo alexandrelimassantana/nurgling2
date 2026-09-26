@@ -313,6 +313,8 @@ public class NCore extends Widget
         }
 
         NGameUI gui = NUtils.getGameUI();
+        ForageTracker.tick();
+
         if(gui != null && autoDrink == null && (Boolean)NConfig.get(NConfig.Key.autoDrink))
         {
             synchronized (autoHelperLock) {

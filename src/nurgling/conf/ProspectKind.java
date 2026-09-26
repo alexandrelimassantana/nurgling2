@@ -1,6 +1,7 @@
 package nurgling.conf;
 
 import nurgling.actions.bots.MasterMiner;
+import nurgling.widgets.ForageTrackerContainer;
 
 /**
  * Categories of resource marks placed on the map: ground samples from the Checker bots
@@ -16,6 +17,7 @@ public enum ProspectKind {
     ORE("maptools.kind.ore"),
     GEM("maptools.kind.gem"),
     STONE("maptools.kind.stone"),
+    FORAGE("maptools.kind.forage"),
     OTHER("maptools.kind.other");
 
     public final String l10nKey;
@@ -31,6 +33,12 @@ public enum ProspectKind {
     public static ProspectKind of(String resourceType) {
         if(resourceType == null)
             return OTHER;
+        /* Forage Tracker marks are tested first, by list membership rather than name matching:
+         * a forageable's name can't be told apart from a ground sample or mineral by pattern
+         * alone (e.g. a berry could share a substring with a mineral name), but the tracker's
+         * own watch list is authoritative about what it marks. */
+        if(ForageTrackerContainer.getForageProps().containsKey(resourceType))
+            return FORAGE;
         /* Mined finds are tested first, and against name lists rather than the loose word
          * matching below: Sandstone would otherwise read as a Sand ground sample. Nothing a
          * Checker bot samples appears in those lists, so the samples are unaffected. */

@@ -137,6 +137,13 @@ public class NFlowerMenu extends FlowerMenu
         if(option != null && NUtils.getUI().core.getLastActions()!=null && NUtils.getUI().core.getLastActions().item!=null && option.name.contains("Prospect")) {
             NProspecting.item(ui, NUtils.getUI().core.getLastActions().item);
         }
+        NCore.LastActions lastActions = NUtils.getUI().core.getLastActions();
+        if (option != null && lastActions != null && lastActions.gob != null) {
+            // A real choice made on a world object -- as close to "the player just
+            // tried to gather something" as this client can tell without server
+            // source. Arms ForageTracker's brief detection window; see its javadoc.
+            ForageTracker.armAfterGatherAction();
+        }
         NUtils.getUI().core.resetLastAction();
     }
 

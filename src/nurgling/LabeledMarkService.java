@@ -138,6 +138,49 @@ public class LabeledMarkService implements ProfileAwareService {
         return mark.getLocationId();
     }
 
+    /**
+     * Add a mark for a foraged item. Unlike {@link #addMinedMark}, which always
+     * replaces any nearby same-type mark, this keeps whichever of the new sample
+     * and any existing mark of the same resource type within
+     * {@code dedupRadiusTiles} has the <em>higher</em> quality, discarding the
+     * other. This suits foraging: an item's quality can vary between visits to
+     * the same patch, and only the best sample found there is worth remembering.
+     *
+     * @return true if a mark was recorded/updated, false if an existing mark of
+     *         at least as high a quality was kept and this sample was discarded
+     */
+    public boolean addForageMark(String label, String resourceType, double quality, long segmentId,
+                                 Coord tileCoords, BufferedImage iconImage, int dedupRadiusTiles) {
+        LabeledMinimapMark mark;
+        lock.writeLock().lock();
+        try {
+            final Coord tc = tileCoords;
+            final long segId = segmentId;
+            final String type = (resourceType != null) ? resourceType : "Unknown";
+            LabeledMinimapMark existing = null;
+            for (LabeledMinimapMark m : labeledMarks.values()) {
+                if (type.equals(m.resourceType) && m.isNear(segId, tc, dedupRadiusTiles)) {
+                    existing = m;
+                    break;
+                }
+            }
+            if (existing != null && existing.quality >= quality) {
+                return false;
+            }
+            if (existing != null) {
+                labeledMarks.remove(existing.getLocationId());
+            }
+
+            mark = new LabeledMinimapMark(label, resourceType, quality, segmentId, tileCoords, iconImage);
+            labeledMarks.put(mark.getLocationId(), mark);
+            reindex();
+        } finally {
+            lock.writeLock().unlock();
+        }
+        scheduleSave();
+        return true;
+    }
+
     /** Every mark of one resource type, in no particular order. */
     public List<LabeledMinimapMark> getMarksByResourceType(String resourceType) {
         List<LabeledMinimapMark> result = new ArrayList<>();

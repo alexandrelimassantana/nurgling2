@@ -47,6 +47,7 @@ public class NInventory extends Inventory
     boolean searchVisible = false;
     private Widget eyeBtn;
     private Widget dropperBtn;
+    private Widget forageTrackerBtn;
     private Widget sortBtnRef;
     private Widget stackSortBtnRef;
     short[][] oldinv = null;
@@ -676,6 +677,39 @@ public class NInventory extends Inventory
         }
     }
 
+    private static final Color LEAF_OFF = new Color(120, 140, 110);
+    private static final Color LEAF_ON = new Color(70, 165, 60);
+
+    /**
+     * A small leaf, drawn in code rather than loaded from a game resource --
+     * same technique as IconItem.createFlowerMark()'s flower badge. Used for
+     * the Forage Tracker header toggle so it doesn't have to borrow an
+     * unrelated bot's icon.
+     */
+    private static TexI leafIcon(Color fill, boolean hover) {
+        int size = 24;
+        BufferedImage img = TexI.mkbuf(new Coord(size, size));
+        Graphics2D g2d = img.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        if (hover) {
+            g2d.setColor(new Color(255, 255, 255, 40));
+            g2d.fillOval(1, 1, size - 2, size - 2);
+        }
+
+        g2d.translate(size / 2.0, size / 2.0);
+        g2d.rotate(Math.toRadians(-45));
+        int w = size - 6, h = (size - 6) * 2 / 3;
+        g2d.setColor(fill);
+        g2d.fillOval(-w / 2, -h / 2, w, h);
+        g2d.setColor(fill.darker());
+        g2d.drawOval(-w / 2, -h / 2, w, h);
+        g2d.drawLine(-w / 2 + 2, 0, w / 2 - 2, 0);
+
+        g2d.dispose();
+        return new TexI(img);
+    }
+
     // Square clickable header toggle (checkbox) with icon drawn centered and hover highlight
     static class NHeaderToggle extends Widget {
         private final Tex unchecked, checked, hoverUnchecked, hoverChecked;
@@ -829,6 +863,21 @@ public class NInventory extends Inventory
             }).tip(nurgling.i18n.L10n.get("inventory.tip.autodrop"));
             ((NHeaderToggle) dropperBtn).a = (Boolean) NConfig.get(NConfig.Key.autoDropper);
             deco.add(dropperBtn);
+
+            // Forage Tracker toggle in title bar. A small leaf drawn in code (like
+            // IconItem.createFlowerMark()'s flower badge) rather than a new game
+            // resource asset -- there's no asset pipeline access here to add one.
+            forageTrackerBtn = new NHeaderToggle(
+                leafIcon(LEAF_OFF, false),
+                leafIcon(LEAF_ON, false),
+                leafIcon(LEAF_OFF, true),
+                leafIcon(LEAF_ON, true),
+                (val) -> {
+                    NConfig.set(NConfig.Key.forageTrackerEnabled, val);
+                }
+            ).tip(nurgling.i18n.L10n.get("inventory.tip.forage_tracker"));
+            ((NHeaderToggle) forageTrackerBtn).a = (Boolean) NConfig.get(NConfig.Key.forageTrackerEnabled);
+            deco.add(forageTrackerBtn);
         }
 
         // --- Right panel (embedded in window, to the right of inventory grid) ---
@@ -983,9 +1032,9 @@ public class NInventory extends Inventory
         int safetyGap = UI.scale(4);
 
         // Display order, left-to-right
-        Widget[] displayOrder = { eyeBtn, searchBtn, stackSortBtnRef, sortBtnRef, dropperBtn };
+        Widget[] displayOrder = { eyeBtn, searchBtn, stackSortBtnRef, sortBtnRef, dropperBtn, forageTrackerBtn };
         // Drop priority when crowded: lowest priority (most-droppable) first
-        Widget[] dropOrder = { dropperBtn, sortBtnRef, stackSortBtnRef, searchBtn, eyeBtn };
+        Widget[] dropOrder = { forageTrackerBtn, dropperBtn, sortBtnRef, stackSortBtnRef, searchBtn, eyeBtn };
 
         // Reset visibility before recomputing layout
         for (Widget b : displayOrder) if (b != null) b.visible = true;

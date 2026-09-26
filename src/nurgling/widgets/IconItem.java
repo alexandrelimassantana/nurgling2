@@ -192,7 +192,7 @@ public class IconItem extends Widget
             menuKeyMap.clear();
             ArrayList<String> optList = new ArrayList<>();
 
-            if (parent instanceof IngredientContainer || parent instanceof DropContainer)
+            if (parent instanceof IngredientContainer || parent instanceof DropContainer || parent instanceof ForageTrackerContainer)
                 addMenuOption(optList, KEY_THRESHOLD);
             addMenuOption(optList, KEY_DELETE);
             if (parent instanceof TaggableItemContainer) {
@@ -246,6 +246,8 @@ public class IconItem extends Widget
                                     ((IngredientContainer) IconItem.this.parent).setThreshold(IconItem.this.name, newVal);
                                 else if (IconItem.this.parent instanceof DropContainer)
                                     ((DropContainer) IconItem.this.parent).setThreshold(IconItem.this.name, newVal);
+                                else if (IconItem.this.parent instanceof ForageTrackerContainer)
+                                    ((ForageTrackerContainer) IconItem.this.parent).setThreshold(IconItem.this.name, newVal);
                             });
                             ui.root.add(st, pos);
 
