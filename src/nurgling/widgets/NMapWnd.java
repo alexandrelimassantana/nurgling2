@@ -24,6 +24,7 @@ public class NMapWnd extends MapWnd {
     MapToggleButton forageBtn;
     MapToggleButton mapToolsBtn;
     MapToggleButton vectorClearBtn;
+    MapToggleButton qualityHunterBtn;
     TextEntry markerSearchField;
     Button dbExportBtn;
     Button dbImportBtn;
@@ -33,13 +34,20 @@ public class NMapWnd extends MapWnd {
 
     public class MapToggleButton extends ICheckBox {
         private final Runnable rightClickAction;
-        
+
         public MapToggleButton(String base, String tooltip, Runnable rightClickAction) {
             super("nurgling/hud/buttons/" + base + "/", "u", "d", "h", "dh");
             this.rightClickAction = rightClickAction;
             settip(tooltip);
         }
-        
+
+        /** For an icon drawn in code (TexI) rather than loaded from a game resource. */
+        public MapToggleButton(Tex up, Tex down, Tex hoverup, Tex hoverdown, String tooltip, Runnable rightClickAction) {
+            super(up, down, hoverup, hoverdown);
+            this.rightClickAction = rightClickAction;
+            settip(tooltip);
+        }
+
         @Override
         public boolean mousedown(MouseDownEvent ev) {
             if(ev.b == 3 && checkhit(ev.c)) {
@@ -91,6 +99,18 @@ public class NMapWnd extends MapWnd {
         vectorClearBtn = add(new MapToggleButton("vector", "Clear tracking vectors", null));
         vectorClearBtn.a = false; // Always show as unpressed
         vectorClearBtn.click(this::clearVectors);
+
+        // Quality Hunter's own mark search, kept separate from the general prospect-sample
+        // search (see MapToolsWindow.openQualityHunterSearch). Same leaf glyph as its inventory
+        // toggle, drawn in code rather than a new game resource.
+        qualityHunterBtn = add(new MapToggleButton(
+                nurgling.NInventory.leafIcon(nurgling.NInventory.LEAF_ON, false),
+                nurgling.NInventory.leafIcon(nurgling.NInventory.LEAF_ON, false),
+                nurgling.NInventory.leafIcon(nurgling.NInventory.LEAF_ON, true),
+                nurgling.NInventory.leafIcon(nurgling.NInventory.LEAF_ON, true),
+                L10n.get("quality_hunter.search_tip"), null));
+        qualityHunterBtn.a = false; // Always show as unpressed (no toggle state)
+        qualityHunterBtn.click(MapToolsWindow::openQualityHunterSearch);
 
         layoutMapButtons();
 
@@ -433,7 +453,7 @@ public class NMapWnd extends MapWnd {
      * row rather than running off the left edge when the window is small.
      */
     private void layoutMapButtons() {
-        MapToggleButton[] btns = {mapToolsBtn, fishBtn, treeBtn, oreBtn, gemBtn, stoneBtn, forageBtn, vectorClearBtn};
+        MapToggleButton[] btns = {mapToolsBtn, fishBtn, treeBtn, oreBtn, gemBtn, stoneBtn, forageBtn, qualityHunterBtn, vectorClearBtn};
         for(MapToggleButton btn : btns) {
             if(btn == null)
                 return;

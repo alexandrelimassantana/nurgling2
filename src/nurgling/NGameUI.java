@@ -73,6 +73,7 @@ public class NGameUI extends GameUI
     public TreeSearchWindow treeSearchWindow = null;
 
     public MineralSearchWindow mineralSearchWindow = null;
+    public QualityHunterSearchWindow qualityHunterSearchWindow = null;
     public final Map<String, TreeLocationDetailsWindow> openTreeDetailWindows = new HashMap<>();
     public LabeledMarkService labeledMarkService;
     public MapToolsWindow mapToolsWindow = null;

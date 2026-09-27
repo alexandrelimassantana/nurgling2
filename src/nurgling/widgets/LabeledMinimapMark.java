@@ -9,10 +9,14 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.json.JSONArray;
 
 /**
  * Represents a labeled icon mark on the minimap.
@@ -34,6 +38,7 @@ public class LabeledMinimapMark {
     public final Coord tileCoords;        // Tile coordinates within the segment
     public final long timestamp;          // When it was created
     public final Color labelColor;        // Color for the label text
+    public final List<String> groups;     // Quality Hunter groups this was recorded under (possibly several, or none)
 
     // Text furnace for rendering labels (like quest giver names)
     private static final Text.Furnace labelFurnace = new PUtils.BlurFurn(
@@ -111,7 +116,7 @@ public class LabeledMinimapMark {
      * @param labelColor Optional color for the label (null = white)
      */
     public LabeledMinimapMark(String label, String resourceType, double quality, long segmentId, Coord tileCoords,
-                              BufferedImage iconImage, Color labelColor) {
+                              BufferedImage iconImage, Color labelColor, List<String> groups) {
         this.label = label;
         this.resourceType = resourceType != null ? resourceType : "Unknown";
         this.quality = quality;
@@ -119,9 +124,15 @@ public class LabeledMinimapMark {
         this.segmentId = segmentId;
         this.tileCoords = tileCoords;
         this.labelColor = labelColor != null ? labelColor : Color.WHITE;
+        this.groups = (groups != null) ? Collections.unmodifiableList(new ArrayList<>(groups)) : Collections.emptyList();
         this.timestamp = System.currentTimeMillis();
         this.locationId = generateLocationId(segmentId, tileCoords, label);
         registerIcon(this.resourceType, iconImage);
+    }
+
+    public LabeledMinimapMark(String label, String resourceType, double quality, long segmentId, Coord tileCoords,
+                              BufferedImage iconImage, Color labelColor) {
+        this(label, resourceType, quality, segmentId, tileCoords, iconImage, labelColor, Collections.emptyList());
     }
 
     /**
@@ -129,7 +140,7 @@ public class LabeledMinimapMark {
      */
     public LabeledMinimapMark(String label, String resourceType, double quality, long segmentId, Coord tileCoords,
                               BufferedImage iconImage) {
-        this(label, resourceType, quality, segmentId, tileCoords, iconImage, null);
+        this(label, resourceType, quality, segmentId, tileCoords, iconImage, null, Collections.emptyList());
     }
 
     /**
@@ -145,6 +156,17 @@ public class LabeledMinimapMark {
         this.segmentId = json.getLong("segmentId");
         this.tileCoords = new Coord(json.getInt("tileX"), json.getInt("tileY"));
         this.timestamp = json.getLong("timestamp");
+        if (json.has("groups")) {
+            JSONArray arr = json.getJSONArray("groups");
+            List<String> loaded = new ArrayList<>();
+            for (int i = 0; i < arr.length(); i++) loaded.add(arr.getString(i));
+            this.groups = Collections.unmodifiableList(loaded);
+        } else if (json.has("group") && !json.getString("group").isEmpty()) {
+            // Pre-multi-group format: one group string per mark.
+            this.groups = Collections.singletonList(json.getString("group"));
+        } else {
+            this.groups = Collections.emptyList();
+        }
 
         // Load label color
         if (json.has("labelColor")) {
@@ -200,6 +222,7 @@ public class LabeledMinimapMark {
         json.put("tileY", tileCoords.y);
         json.put("timestamp", timestamp);
         json.put("labelColor", labelColor.getRGB());
+        json.put("groups", new JSONArray(groups));
         return json;
     }
 

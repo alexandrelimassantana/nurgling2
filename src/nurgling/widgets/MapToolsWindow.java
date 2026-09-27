@@ -10,9 +10,14 @@ import nurgling.i18n.L10n;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Single home for everything that controls what the map draws: tree/fish icon toggles,
@@ -35,6 +40,13 @@ public class MapToolsWindow extends Window {
     private static final double COUNT_INTERVAL = 0.5;
 
     private final List<KindRow> rows = new ArrayList<>();
+    private final List<GroupRow> groupRows = new ArrayList<>();
+    private final List<NameRow> nameRows = new ArrayList<>();
+    private Label nameFilterLabel;
+    private Set<String> shownGroups = new HashSet<>();
+    private Set<String> shownNames = new HashSet<>();
+    private Widget overlaysTab;
+    private int qualityHunterGroupsY;
     private final Tabs tabs;
     private final Tabs.Tab searchTab;
     private final TerrainSearchPanel terrainSearchPanel;
@@ -55,6 +67,7 @@ public class MapToolsWindow extends Window {
         searchTab = tabs.add();
 
         buildOverlays(overlays);
+        refreshQualityHunterFilters();
         terrainSearchPanel = searchTab.add(new TerrainSearchPanel(), 0, 0);
 
         Widget tabBtn = add(tabs.new TabButton(TAB_BTN_W, L10n.get("maptools.tab_overlays"), overlays), 0, 0);
@@ -70,6 +83,7 @@ public class MapToolsWindow extends Window {
     }
 
     private void buildOverlays(Widget tab) {
+        overlaysTab = tab;
         int y = 0;
 
         tab.add(new Label(L10n.get("maptools.section_icons")), 0, y);
@@ -124,12 +138,137 @@ public class MapToolsWindow extends Window {
         y += alignRow(y, master, masterLbl, masterEntry, setAll) + ROW_GAP;
 
         for(ProspectKind kind : ProspectKind.values()) {
+            // Quality Hunter marks are arbitrary, player-configured items, not a fixed
+            // resource kind -- they get their own dedicated search (below) instead of
+            // sharing this per-kind visibility/threshold list.
+            if(kind == ProspectKind.QUALITY_HUNTER)
+                continue;
             KindRow row = new KindRow(tab, kind, y);
             rows.add(row);
             y += row.height;
         }
 
+        y += MARGIN;
+        Label qualityHunterLbl = tab.add(new Label(L10n.get("maptools.section_quality_hunter")), 0, y);
+        Button qualityHunterSearch = tab.add(new Button(SEARCH_BTN_W, L10n.get("maptools.search_btn")) {
+            @Override
+            public void click() {
+                openQualityHunterSearch();
+            }
+        }, OVERLAY_W - SEARCH_BTN_W, y);
+        qualityHunterSearch.settip(L10n.get("quality_hunter.search_tip"));
+        y += alignRow(y, qualityHunterLbl, qualityHunterSearch) + ROW_GAP;
+
+        qualityHunterGroupsY = y;
         tab.pack();
+    }
+
+    /** One Quality Hunter group: visibility toggle and a live shown/total count, mirroring
+     *  KindRow but keyed by a player-chosen group name instead of a fixed ProspectKind. A mark can
+     *  belong to several groups at once, so its count is tallied under each one. */
+    private class GroupRow {
+        private final String group;
+        private final CheckBox box;
+        private final Label count;
+        private final int height;
+
+        GroupRow(Widget tab, String group, int y) {
+            this.group = group;
+            box = tab.add(new CheckBox(group.isEmpty() ? L10n.get("quality_hunter.ungrouped") : group), UI.scale(14), y);
+            box.state(() -> QualityHunterContainer.isGroupVisible(group));
+            box.set(val -> QualityHunterContainer.setGroupVisible(group, val));
+            count = tab.add(new Label("-"), COUNT_X, y);
+            height = alignRow(y, box, count) + ROW_GAP;
+        }
+
+        void setCount(int shown, int total) {
+            count.settext((total == 0) ? "-" : (shown + "/" + total));
+        }
+    }
+
+    /** One tracked item name: visibility toggle and a live shown/total count -- the "or by name"
+     *  half of Quality Hunter's filtering, independent of and combined (AND) with group visibility. */
+    private class NameRow {
+        private final String name;
+        private final CheckBox box;
+        private final Label count;
+        private final int height;
+
+        NameRow(Widget tab, String name, int y) {
+            this.name = name;
+            box = tab.add(new CheckBox(name), UI.scale(14), y);
+            box.state(() -> QualityHunterContainer.isNameVisible(name));
+            box.set(val -> QualityHunterContainer.setNameVisible(name, val));
+            count = tab.add(new Label("-"), COUNT_X, y);
+            height = alignRow(y, box, count) + ROW_GAP;
+        }
+
+        void setCount(int shown, int total) {
+            count.settext((total == 0) ? "-" : (shown + "/" + total));
+        }
+    }
+
+    /** Every group, and every resource name, currently recorded on a Quality Hunter mark, anywhere
+     *  -- not the tracked-item config, which can list a group nothing has been found for yet, or
+     *  drop one still on old marks. Filtering is about what marks exist, so it follows the marks. */
+    private void currentQualityHunterFilters(NGameUI gui, Set<String> groupsOut, Set<String> namesOut) {
+        if(gui == null || gui.labeledMarkService == null)
+            return;
+        for(LabeledMinimapMark mark : gui.labeledMarkService.getAllMarks()) {
+            if(mark.kind != ProspectKind.QUALITY_HUNTER)
+                continue;
+            namesOut.add(mark.resourceType);
+            if(mark.groups.isEmpty())
+                groupsOut.add("");
+            else
+                groupsOut.addAll(mark.groups);
+        }
+    }
+
+    /** Rebuilds the Quality Hunter group/name rows only if the sets actually changed, so an open
+     *  panel doesn't lose scroll position or flicker on every count poll. */
+    private void refreshQualityHunterFilters() {
+        Set<String> groups = new TreeSet<>();
+        Set<String> names = new TreeSet<>();
+        currentQualityHunterFilters(NUtils.getGameUI(), groups, names);
+        if(groups.equals(shownGroups) && names.equals(shownNames))
+            return;
+        shownGroups = groups;
+        shownNames = names;
+
+        for(GroupRow row : groupRows) {
+            row.box.destroy();
+            row.count.destroy();
+        }
+        groupRows.clear();
+        for(NameRow row : nameRows) {
+            row.box.destroy();
+            row.count.destroy();
+        }
+        nameRows.clear();
+        if(nameFilterLabel != null) {
+            nameFilterLabel.destroy();
+            nameFilterLabel = null;
+        }
+
+        int y = qualityHunterGroupsY;
+        for(String group : groups) {
+            GroupRow row = new GroupRow(overlaysTab, group, y);
+            groupRows.add(row);
+            y += row.height;
+        }
+        if(!names.isEmpty()) {
+            y += MARGIN;
+            nameFilterLabel = overlaysTab.add(new Label(L10n.get("quality_hunter.filter_by_name")), 0, y);
+            y += UI.scale(17);
+            for(String name : names) {
+                NameRow row = new NameRow(overlaysTab, name, y);
+                nameRows.add(row);
+                y += row.height;
+            }
+        }
+        overlaysTab.pack();
+        pack();
     }
 
     private int addIconRow(Widget tab, int y, String label, java.util.function.Supplier<Boolean> state,
@@ -294,14 +433,34 @@ public class MapToolsWindow extends Window {
     }
 
     private void updateCounts() {
+        refreshQualityHunterFilters();
+
         Map<ProspectKind, int[]> tally = new EnumMap<>(ProspectKind.class);
+        Map<String, int[]> groupTally = new HashMap<>();
+        Map<String, int[]> nameTally = new HashMap<>();
         NGameUI gui = NUtils.getGameUI();
         if(gui != null && gui.labeledMarkService != null && gui.mmap != null && gui.mmap.sessloc != null) {
             for(LabeledMinimapMark mark : gui.labeledMarkService.getMarksForSegment(gui.mmap.sessloc.seg.id)) {
                 int[] counts = tally.computeIfAbsent(mark.kind, k -> new int[2]);
+                boolean visible = NMiniMap.markVisible(mark);
                 counts[1]++;
-                if(NMiniMap.markVisible(mark))
+                if(visible)
                     counts[0]++;
+                if(mark.kind == ProspectKind.QUALITY_HUNTER) {
+                    int[] ncounts = nameTally.computeIfAbsent(mark.resourceType, k -> new int[2]);
+                    ncounts[1]++;
+                    if(visible)
+                        ncounts[0]++;
+                    // A mark in several groups at once is tallied under each -- it genuinely
+                    // belongs to all of them, same as its OR visibility rule treats them.
+                    List<String> markGroups = mark.groups.isEmpty() ? Collections.singletonList("") : mark.groups;
+                    for(String group : markGroups) {
+                        int[] gcounts = groupTally.computeIfAbsent(group, k -> new int[2]);
+                        gcounts[1]++;
+                        if(visible)
+                            gcounts[0]++;
+                    }
+                }
             }
         }
         for(KindRow row : rows) {
@@ -311,6 +470,27 @@ public class MapToolsWindow extends Window {
             else
                 row.setCount(counts[0], counts[1]);
         }
+        for(GroupRow row : groupRows) {
+            int[] counts = groupTally.get(row.group);
+            if(counts == null)
+                row.setCount(0, 0);
+            else
+                row.setCount(counts[0], counts[1]);
+        }
+        for(NameRow row : nameRows) {
+            int[] counts = nameTally.get(row.name);
+            if(counts == null)
+                row.setCount(0, 0);
+            else
+                row.setCount(counts[0], counts[1]);
+        }
+    }
+
+    @Override
+    public void show() {
+        // Groups/names accumulate while the window is closed, so rebuild what is on offer.
+        refreshQualityHunterFilters();
+        super.show();
     }
 
     @Override
@@ -451,6 +631,24 @@ public class MapToolsWindow extends Window {
             gui.fishSearchWindow = new FishSearchWindow(gui);
             gui.add(gui.fishSearchWindow, new Coord(100, 100));
             gui.fishSearchWindow.show();
+        }
+    }
+
+    public static void openQualityHunterSearch() {
+        NGameUI gui = NUtils.getGameUI();
+        if(gui == null)
+            return;
+        if(gui.qualityHunterSearchWindow != null) {
+            if(gui.qualityHunterSearchWindow.visible()) {
+                gui.qualityHunterSearchWindow.hide();
+            } else {
+                gui.qualityHunterSearchWindow.show();
+                gui.qualityHunterSearchWindow.raise();
+            }
+        } else {
+            gui.qualityHunterSearchWindow = new QualityHunterSearchWindow(gui);
+            gui.add(gui.qualityHunterSearchWindow, new Coord(100, 100));
+            gui.qualityHunterSearchWindow.show();
         }
     }
 }

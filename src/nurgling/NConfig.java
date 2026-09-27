@@ -286,7 +286,22 @@ public class NConfig
         // Localization
         language,
         // Calculators window: cheese rack calculator rows and stage-hour overrides (JSON string)
-        cheeseRackCalculator
+        cheeseRackCalculator,
+        // Quality Hunter: marks a map location once a tracked item's quality clears its threshold
+        qualityHunterEnabled,
+        qualityHunterMarkRadius,
+        // Legacy flat watch list (name/threshold/single-group-string per item) -- superseded by
+        // qualityHunterGroups, kept only so QualityHunterContainer can migrate it once.
+        qualityHunterConf,
+        // Named groups of tracked items: {"<group>": [ {name, th, active, ...icon}, ... ]}
+        qualityHunterGroups,
+        // Named tracking profiles: {"<profile>": ["<active group>", ...]}. The built-in "Default"
+        // profile is not stored here -- it always means every group, so it can't go stale.
+        qualityHunterProfiles,
+        qualityHunterCurrentProfile,
+        // Minimap/search display filters -- independent of which groups/items are actively tracked.
+        qualityHunterGroupVisibility,
+        qualityHunterNameVisibility
     }
 
     public enum BBDisplayMode
@@ -325,6 +340,14 @@ public class NConfig
         conf.put(Key.showStackOverlay, true);
         conf.put(Key.autoDropper, false);
         conf.put(Key.dropConf, new JSONArray());
+        conf.put(Key.qualityHunterEnabled, false);
+        conf.put(Key.qualityHunterConf, new JSONArray());
+        conf.put(Key.qualityHunterMarkRadius, 100);
+        conf.put(Key.qualityHunterGroups, new JSONObject());
+        conf.put(Key.qualityHunterProfiles, new JSONObject());
+        conf.put(Key.qualityHunterCurrentProfile, "Default");
+        conf.put(Key.qualityHunterGroupVisibility, new JSONObject());
+        conf.put(Key.qualityHunterNameVisibility, new JSONObject());
         conf.put(Key.is_real_time, true);
         conf.put(Key.numbelts, 3);
         conf.put(Key.showCropStage, false);

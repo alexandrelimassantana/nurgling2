@@ -94,9 +94,27 @@ NMiniMap extends MiniMap {
     /** Whether a prospected sample mark passes the current kind/threshold filter. */
     public static boolean markVisible(LabeledMinimapMark mark) {
         nurgling.conf.ProspectMarkSettings settings = prospectSettings();
-        if(settings == null)
-            return true;
-        return settings.shows(mark.kind, mark.quality);
+        if(settings != null && !settings.shows(mark.kind, mark.quality))
+            return false;
+        if(mark.kind == nurgling.conf.ProspectKind.QUALITY_HUNTER) {
+            if(!QualityHunterContainer.isNameVisible(mark.resourceType))
+                return false;
+            if(!qualityHunterGroupsVisible(mark))
+                return false;
+        }
+        return true;
+    }
+
+    /** A mark shows if ANY of its recorded groups is currently visible (an item filed under both
+     *  a hidden and a shown group still shows, via the shown one), or if it has no group at all. */
+    private static boolean qualityHunterGroupsVisible(LabeledMinimapMark mark) {
+        if(mark.groups.isEmpty())
+            return QualityHunterContainer.isGroupVisible("");
+        for(String group : mark.groups) {
+            if(QualityHunterContainer.isGroupVisible(group))
+                return true;
+        }
+        return false;
     }
 
     public static boolean showForageFinds() {

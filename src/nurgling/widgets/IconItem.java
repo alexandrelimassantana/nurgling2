@@ -23,6 +23,7 @@ public class IconItem extends Widget
     private static final String KEY_EDIT = "iconitem.edit";
     private static final String KEY_MAINTAIN = "iconitem.maintain";
     private static final String KEY_PRIORITY = "iconitem.priority";
+    private static final String KEY_TOGGLE_TRACKING = "iconitem.toggle_tracking";
     public static final TexI frame = new TexI(Resource.loadimg("nurgling/hud/iconframe"));
     public static final TexI framet = new TexI(Resource.loadimg("nurgling/hud/iconframet"));
     public static final TexI bm = new TexI(Resource.loadimg("nurgling/hud/bartermark"));
@@ -83,6 +84,10 @@ public class IconItem extends Widget
     int priority = -1;
     TexI priorityTex;
 
+    // Quality Hunter only: whether this particular group placement is currently armed/checked.
+    // Meaningless (left true) for every other container type.
+    boolean qhActive = true;
+
     String name;
 
     void setFlowerAction(boolean isFlowerAction) {
@@ -125,6 +130,8 @@ public class IconItem extends Widget
     {
         if (tex != null)
         {
+            boolean dimmed = (parent instanceof QualityHunterContainer) && !qhActive;
+            if(dimmed) g.chcolor(255, 255, 255, 110);
             if(hasBadge)
             {
                 g.image(framet, Coord.z, UI.scale(32, 42));
@@ -135,6 +142,7 @@ public class IconItem extends Widget
                 g.image(frame, Coord.z, UI.scale(32, 32));
             }
             g.image(tex, Coord.z, UI.scale(32,32));
+            if(dimmed) g.chcolor();
             if(type == NArea.Ingredient.Type.BARTER)
             {
                 g.image(bm, UI.scale(16,16), UI.scale(16, 16));
@@ -157,6 +165,8 @@ public class IconItem extends Widget
     @Override
     public Object tooltip(Coord c, Widget prev)
     {
+        if (parent instanceof QualityHunterContainer && !qhActive)
+            return new TexI(RichText.render(name + "\n(" + L10n.get("iconitem.tracking_off") + ")").img);
         return tip;
     }
 
@@ -192,8 +202,10 @@ public class IconItem extends Widget
             menuKeyMap.clear();
             ArrayList<String> optList = new ArrayList<>();
 
-            if (parent instanceof IngredientContainer || parent instanceof DropContainer)
+            if (parent instanceof IngredientContainer || parent instanceof DropContainer || parent instanceof QualityHunterContainer)
                 addMenuOption(optList, KEY_THRESHOLD);
+            if (parent instanceof QualityHunterContainer)
+                addMenuOption(optList, KEY_TOGGLE_TRACKING);
             addMenuOption(optList, KEY_DELETE);
             if (parent instanceof TaggableItemContainer) {
                 addMenuOption(optList, KEY_EDIT);
@@ -246,9 +258,16 @@ public class IconItem extends Widget
                                     ((IngredientContainer) IconItem.this.parent).setThreshold(IconItem.this.name, newVal);
                                 else if (IconItem.this.parent instanceof DropContainer)
                                     ((DropContainer) IconItem.this.parent).setThreshold(IconItem.this.name, newVal);
+                                else if (IconItem.this.parent instanceof QualityHunterContainer)
+                                    ((QualityHunterContainer) IconItem.this.parent).setThreshold(IconItem.this.name, newVal);
                             });
                             ui.root.add(st, pos);
 
+                        }
+                        else if (key.equals(KEY_TOGGLE_TRACKING))
+                        {
+                            QualityHunterContainer qhc = (QualityHunterContainer) IconItem.this.parent;
+                            qhc.setActive(IconItem.this.name, !IconItem.this.qhActive);
                         }
                         else if (key.equals(KEY_MAINTAIN))
                         {
@@ -388,4 +407,5 @@ public class IconItem extends Widget
             }
         }
     }
+
 }

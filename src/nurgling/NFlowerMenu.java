@@ -120,6 +120,7 @@ public class NFlowerMenu extends FlowerMenu
                     NUtils.getUI().core.setLastAction(option.name, actions.item);
                 } else if (actions.gob != null) {
                     NUtils.getUI().core.setLastAction(option.name, actions.gob);
+                    QualityHunter.armOnGobAction(actions.gob);
                 }
             }
             if (ui != null && ui.gui != null && ui.gui.forageRecorder != null)
