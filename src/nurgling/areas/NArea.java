@@ -570,6 +570,15 @@ public class NArea
 
 
         public int th = -1;
+
+        /**
+         * PUT (out) only: when this item's target container is full, replace its lowest-quality
+         * copy already stored with a higher-quality copy still stuck in the inventory instead of
+         * leaving the newcomer behind. Set per item/category from this area's PUT drag-n-drop
+         * config.
+         */
+        public boolean replace = false;
+
         public Ingredient(Type type, String name)
         {
             this.type = type;
@@ -608,11 +617,11 @@ public class NArea
                 NArea.Ingredient.Type type = (obj.has("type")) ?
                         type = NArea.Ingredient.Type.valueOf((String) obj.get("type")) :
                         Ingredient.Type.CONTAINER;
-                if(((JSONObject)jout.get(i)).has("th"))
-                {
-                    return new Ingredient(type,name, (Integer)((JSONObject)jout.get(i)).get("th"));
-                }
-                return new Ingredient(type,name);
+                Ingredient ingredient = obj.has("th") ?
+                        new Ingredient(type,name, (Integer)obj.get("th")) :
+                        new Ingredient(type,name);
+                ingredient.replace = obj.has("replace") && (Boolean) obj.get("replace");
+                return ingredient;
             }
         }
         return null;

@@ -23,12 +23,46 @@ public class IconItem extends Widget
     private static final String KEY_EDIT = "iconitem.edit";
     private static final String KEY_MAINTAIN = "iconitem.maintain";
     private static final String KEY_PRIORITY = "iconitem.priority";
+    private static final String KEY_ENABLE_REPLACE = "iconitem.enable_replace";
+    private static final String KEY_DISABLE_REPLACE = "iconitem.disable_replace";
     public static final TexI frame = new TexI(Resource.loadimg("nurgling/hud/iconframe"));
     public static final TexI framet = new TexI(Resource.loadimg("nurgling/hud/iconframet"));
     public static final TexI bm = new TexI(Resource.loadimg("nurgling/hud/bartermark"));
     public static final TexI barm = new TexI(Resource.loadimg("nurgling/hud/barrelmark"));
     // Small green flower badge for a flower-menu-action item - drawn procedurally, no existing asset to reuse.
     public static final TexI flowerMark = createFlowerMark();
+    // Small gold up-arrow badge marking a PUT item that replaces its lowest-quality copy when
+    // the container is full - drawn procedurally, no existing asset to reuse.
+    public static final TexI replaceMark = createReplaceMark();
+
+    private static TexI createReplaceMark() {
+        int size = 32;
+        BufferedImage img = TexI.mkbuf(new Coord(size, size));
+        Graphics2D g2d = img.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        Color fill = new Color(230, 200, 60);
+        Color outline = new Color(120, 90, 10);
+
+        int[] xs = {size / 2, size / 4, size * 3 / 4};
+        int[] ys = {size / 6, size / 2, size / 2};
+        g2d.setColor(fill);
+        g2d.fillPolygon(xs, ys, 3);
+        g2d.setColor(outline);
+        g2d.drawPolygon(xs, ys, 3);
+
+        int stemW = size / 6;
+        int stemX = size / 2 - stemW / 2;
+        int stemY = size / 2;
+        int stemH = size / 2 - size / 8;
+        g2d.setColor(fill);
+        g2d.fillRect(stemX, stemY, stemW, stemH);
+        g2d.setColor(outline);
+        g2d.drawRect(stemX, stemY, stemW, stemH);
+
+        g2d.dispose();
+        return new TexI(img);
+    }
 
     private static TexI createFlowerMark() {
         int size = 32;
@@ -75,6 +109,11 @@ public class IconItem extends Widget
 
     // Whether this entry's action is a flower-menu action - independent of the Type marking above.
     boolean isFlowerAction = false;
+
+    // PUT (out) only: replace the lowest-quality copy stored when the container is full,
+    // instead of leaving a higher-quality copy stuck in the inventory. See setReplace() on the
+    // owning IngredientContainer and ReplaceLowestQuality.
+    boolean replace = false;
 
     int val;
 
@@ -147,6 +186,10 @@ public class IconItem extends Widget
             {
                 g.image(flowerMark, UI.scale(16, 0), UI.scale(16, 16));
             }
+            if(replace)
+            {
+                g.image(replaceMark, Coord.z, UI.scale(16, 16));
+            }
             if(priority >= 0 && priorityTex != null)
             {
                 g.image(priorityTex, Coord.z);
@@ -206,6 +249,9 @@ public class IconItem extends Widget
                     addMenuOption(optList, KEY_MARK_BARREL);
                 } else {
                     addMenuOption(optList, KEY_UNMARK);
+                }
+                if (((IngredientContainer) parent).type.equals("out")) {
+                    addMenuOption(optList, replace ? KEY_DISABLE_REPLACE : KEY_ENABLE_REPLACE);
                 }
             }
 
@@ -293,6 +339,12 @@ public class IconItem extends Widget
                         else if(key.equals(KEY_UNMARK))
                         {
                             ((IngredientContainer)IconItem.this.parent).setType(IconItem.this.name, NArea.Ingredient.Type.CONTAINER);
+                        }
+                        else if(key.equals(KEY_ENABLE_REPLACE) || key.equals(KEY_DISABLE_REPLACE))
+                        {
+                            boolean newVal = key.equals(KEY_ENABLE_REPLACE);
+                            ((IngredientContainer)IconItem.this.parent).setReplace(IconItem.this.name, newVal);
+                            IconItem.this.replace = newVal;
                         }
                         else if(key.equals(KEY_EDIT))
                         {
