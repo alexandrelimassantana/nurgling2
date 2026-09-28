@@ -119,6 +119,7 @@ public class CraftPreset {
         private String preferredIngredient;
         private boolean isOptional;
         private boolean isIgnored;
+        private List<String> fallbackPresetIds = new ArrayList<>();
 
         public InputSpec() {}
 
@@ -130,6 +131,13 @@ public class CraftPreset {
             this.preferredIngredient = obj.optString("preferredIngredient", null);
             this.isOptional = obj.optBoolean("isOptional", false);
             this.isIgnored = obj.optBoolean("isIgnored", false);
+            this.fallbackPresetIds = new ArrayList<>();
+            if (obj.has("fallbackPresetIds")) {
+                JSONArray fallbackArray = obj.getJSONArray("fallbackPresetIds");
+                for (int i = 0; i < fallbackArray.length(); i++) {
+                    fallbackPresetIds.add(fallbackArray.getString(i));
+                }
+            }
         }
 
         public JSONObject toJson() {
@@ -143,6 +151,9 @@ public class CraftPreset {
             }
             obj.put("isOptional", isOptional);
             obj.put("isIgnored", isIgnored);
+            if (!fallbackPresetIds.isEmpty()) {
+                obj.put("fallbackPresetIds", new JSONArray(fallbackPresetIds));
+            }
             return obj;
         }
 
@@ -167,6 +178,24 @@ public class CraftPreset {
 
         public boolean isIgnored() { return isIgnored; }
         public void setIgnored(boolean ignored) { isIgnored = ignored; }
+
+        public List<String> getFallbackPresetIds() { return fallbackPresetIds; }
+        public void setFallbackPresetIds(List<String> fallbackPresetIds) {
+            this.fallbackPresetIds = fallbackPresetIds != null ? fallbackPresetIds : new ArrayList<>();
+        }
+
+        /**
+         * The concrete item name to use for inventory/area lookups: the chosen
+         * ingredient for a category input (e.g. "Copper Nugget"), or the plain
+         * name for a non-category input. Null if a category input has no
+         * preferred ingredient chosen (Craft.java auto-selects at craft time).
+         */
+        public String getEffectiveName() {
+            if (isCategory) {
+                return preferredIngredient;
+            }
+            return name;
+        }
     }
 
     /**
