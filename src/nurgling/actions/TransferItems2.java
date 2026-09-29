@@ -153,14 +153,14 @@ public class TransferItems2 implements Action
     private void processAreaTransfers(String areaId, List<ItemTransfer> itemsForArea, NGameUI gui) throws InterruptedException {
         for (ItemTransfer itemTransfer : itemsForArea) {
             ArrayList<NContext.ObjectStorage> storages = cnt.getOutStorages(itemTransfer.itemName, itemTransfer.quality);
-            Container lastContainer = null;
+            ArrayList<Container> triedContainers = new ArrayList<>();
             for (NContext.ObjectStorage output : storages) {
                 if (output instanceof NContext.Pile) {
                     new TransferToPiles(cnt.getRCArea(areaId), itemTransfer.itemName,
                         (int)itemTransfer.quality).run(gui);
                 }
                 if (output instanceof Container) {
-                    lastContainer = (Container) output;
+                    triedContainers.add((Container) output);
                     TreeMap<Double,String> areas = cnt.getOutAreas(itemTransfer.itemName);
                     TransferToContainer ttc = new TransferToContainer((Container) output, itemTransfer.itemName,
                         (int)itemTransfer.quality);
@@ -180,15 +180,20 @@ public class TransferItems2 implements Action
             }
 
             // Every reachable output was tried and copies are still stuck in the inventory -
-            // if this area's PUT config for the item allows it, make room in the last container
-            // tried by bumping out its lowest-quality copies instead of leaving the newcomers
-            // behind. Tetris-shaped containers (drying frames etc.) place by sprite shape, not
-            // by quality, so a generic quality-based swap doesn't apply to them.
-            if (lastContainer != null && lastContainer.isFull()
-                    && lastContainer.getattr(Container.Tetris.class) == null
+            // if this area's PUT config for the item allows it, make room in each full container
+            // of the area in turn by bumping out its lowest-quality copies instead of leaving the
+            // newcomers behind. Tetris-shaped containers (drying frames etc.) place by sprite
+            // shape, not by quality, so a generic quality-based swap doesn't apply to them.
+            if (!triedContainers.isEmpty()
                     && !getItemsExactMatch(itemTransfer.itemName, itemTransfer.quality).isEmpty()
                     && cnt.isReplaceEnabled(areaId, itemTransfer.itemName)) {
-                new ReplaceLowestQuality(lastContainer, itemTransfer.itemName, itemTransfer.quality).run(gui);
+                for (Container candidate : triedContainers) {
+                    if (getItemsExactMatch(itemTransfer.itemName, itemTransfer.quality).isEmpty())
+                        break;
+                    if (!candidate.isFull() || candidate.getattr(Container.Tetris.class) != null)
+                        continue;
+                    new ReplaceLowestQuality(candidate, itemTransfer.itemName, itemTransfer.quality).run(gui);
+                }
 
                 // Replacing doesn't empty the inventory - it still leaves something stuck there:
                 // either the copy that lost the swap, or (if nothing in the container was
