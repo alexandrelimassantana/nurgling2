@@ -5,7 +5,6 @@ import nurgling.NGItem;
 import nurgling.NGameUI;
 import nurgling.NUtils;
 import nurgling.areas.NContext;
-import nurgling.tasks.WaitNoItems;
 import nurgling.tools.Container;
 import nurgling.tools.Finder;
 import nurgling.tools.NAlias;
@@ -197,15 +196,6 @@ public class TransferItems2 implements Action
                 // this item a shot before giving up on it entirely.
                 if (!getItemsExactMatch(itemTransfer.itemName, itemTransfer.quality).isEmpty()) {
                     storeInAlternateAreas(itemTransfer.itemName, itemTransfer.quality, areaId, gui);
-                }
-
-                // No PUT zone anywhere could take it - drop it rather than carry it around forever.
-                ArrayList<WItem> stillStuck = getItemsExactMatch(itemTransfer.itemName, itemTransfer.quality);
-                if (!stillStuck.isEmpty()) {
-                    for (WItem witem : stillStuck) {
-                        NUtils.drop(witem);
-                    }
-                    NUtils.addTask(new WaitNoItems(gui.getInventory(), new NAlias(itemTransfer.itemName)));
                 }
             }
         }
