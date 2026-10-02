@@ -209,6 +209,21 @@ public class NContext {
         return outAreas.get(item);
     }
 
+    /**
+     * Whether {@code areaId}'s PUT config for {@code item} has "replace lowest quality when
+     * full" enabled - set via the area's PUT drag-n-drop config (see {@link
+     * nurgling.widgets.IngredientContainer#setReplace}).
+     */
+    public boolean isReplaceEnabled(String areaId, String item) {
+        if (areaId == null)
+            return false;
+        NArea area = areas.get(areaId);
+        if (area == null)
+            return false;
+        NArea.Ingredient ingredient = area.getOutput(item);
+        return ingredient != null && ingredient.replace;
+    }
+
     public NArea goToArea(NContext.Workstation workstation) throws InterruptedException {
         String specName = workstation_spec_map.get(workstation.station).toString();
         NUtils.getGameUI().msg("goToArea: Looking for spec '" + specName + "' for station '" + workstation.station + "'");
@@ -785,7 +800,6 @@ public class NContext {
 
     public ArrayList<ObjectStorage> getOutStorages(String item, double q)  throws InterruptedException
     {
-        ArrayList<ObjectStorage> outputs = new ArrayList<>();
         TreeMap<Double,String> thmap =  outAreas.get(item);
         String id = null;
         for(Double key: thmap.descendingKeySet())
@@ -796,71 +810,155 @@ public class NContext {
                 break;
             }
         }
-        if(id!=null) {
-            navigateToAreaIfNeeded(id);
+        if(id == null)
+            return new ArrayList<>();
+        navigateToAreaIfNeeded(id);
+        NArea area = areas.get(id);
+        if(area == null)
+            return new ArrayList<>();
+        return buildOutStorages(area, item);
+    }
 
-            NArea area = areas.get(id);
-            NArea.Ingredient ingredient = area.getOutput(item);
-            if (ingredient != null) {
-                switch (ingredient.type) {
-                    case BARTER:
-                        outputs.add(new Barter(Finder.findGob(area, new NAlias("gfx/terobjs/barterstand")),
-                                Finder.findGob(area, new NAlias("gfx/terobjs/chest"))));
-                        break;
-                    case CONTAINER: {
+    /**
+     * Output storages for {@code item} in one specific, already-known area, bypassing the
+     * per-item nearest-area routing cache ({@link #getOutStorages}) entirely - used to reach a
+     * farther zone found via {@link #findAlternateOutAreas} once the nearest one is exhausted.
+     */
+    public ArrayList<ObjectStorage> getOutStoragesForArea(String areaId, String item) throws InterruptedException
+    {
+        navigateToAreaIfNeeded(areaId);
+        NArea area = areas.get(areaId);
+        if(area == null)
+            return new ArrayList<>();
+        return buildOutStorages(area, item);
+    }
 
-                        for (Gob gob : Finder.findGobs(area, new NAlias(new ArrayList<String>(contcaps.keySet()), new ArrayList<>()))) {
-                            String hash = gob.ngob.hash;
-                            if(containers.containsKey(hash))
-                            {
-                                outputs.add(containers.get(hash));
-                            }
-                            else {
-                                Container ic = new Container(gob, contcaps.get(gob.ngob.name),area);
-                                ic.initattr(Container.Space.class);
-                                containers.put(gob.ngob.hash, ic);
-                                outputs.add(ic);
-                            }
+    private ArrayList<ObjectStorage> buildOutStorages(NArea area, String item) throws InterruptedException
+    {
+        ArrayList<ObjectStorage> outputs = new ArrayList<>();
+        NArea.Ingredient ingredient = area.getOutput(item);
+        if (ingredient != null) {
+            switch (ingredient.type) {
+                case BARTER:
+                    outputs.add(new Barter(Finder.findGob(area, new NAlias("gfx/terobjs/barterstand")),
+                            Finder.findGob(area, new NAlias("gfx/terobjs/chest"))));
+                    break;
+                case CONTAINER: {
+
+                    for (Gob gob : Finder.findGobs(area, new NAlias(new ArrayList<String>(contcaps.keySet()), new ArrayList<>()))) {
+                        String hash = gob.ngob.hash;
+                        if(containers.containsKey(hash))
+                        {
+                            outputs.add(containers.get(hash));
                         }
-                        for (Gob gob : Finder.findGobs(area, new NAlias("stockpile"))) {
-                            outputs.add(new Pile(gob));
+                        else {
+                            Container ic = new Container(gob, contcaps.get(gob.ngob.name),area);
+                            ic.initattr(Container.Space.class);
+                            containers.put(gob.ngob.hash, ic);
+                            outputs.add(ic);
                         }
-                        if (outputs.isEmpty()) {
-                            outputs.add(new Pile(null));
-                        }
-                        break;
                     }
-                    case BARREL: {
-                        for (Gob gob : Finder.findGobs(area, new NAlias("barrel"))) {
-                            outputs.add(new Barrel(gob));
-                        }
+                    for (Gob gob : Finder.findGobs(area, new NAlias("stockpile"))) {
+                        outputs.add(new Pile(gob));
                     }
+                    if (outputs.isEmpty()) {
+                        outputs.add(new Pile(null));
+                    }
+                    break;
                 }
-            }
-            else
-            {
-                for (Gob gob : Finder.findGobs(area, new NAlias(new ArrayList<String>(contcaps.keySet()), new ArrayList<>()))) {
-                    String hash = gob.ngob.hash;
-                    if(containers.containsKey(hash))
-                    {
-                        outputs.add(containers.get(hash));
+                case BARREL: {
+                    for (Gob gob : Finder.findGobs(area, new NAlias("barrel"))) {
+                        outputs.add(new Barrel(gob));
                     }
-                    else {
-                        Container ic = new Container(gob, contcaps.get(gob.ngob.name),area);
-                        ic.initattr(Container.Space.class);
-                        containers.put(gob.ngob.hash, ic);
-                        outputs.add(ic);
-                    }
-                }
-                for (Gob gob : Finder.findGobs(area, new NAlias("stockpile"))) {
-                    outputs.add(new Pile(gob));
-                }
-                if (outputs.isEmpty()) {
-                    outputs.add(new Pile(null));
                 }
             }
         }
+        else
+        {
+            for (Gob gob : Finder.findGobs(area, new NAlias(new ArrayList<String>(contcaps.keySet()), new ArrayList<>()))) {
+                String hash = gob.ngob.hash;
+                if(containers.containsKey(hash))
+                {
+                    outputs.add(containers.get(hash));
+                }
+                else {
+                    Container ic = new Container(gob, contcaps.get(gob.ngob.name),area);
+                    ic.initattr(Container.Space.class);
+                    containers.put(gob.ngob.hash, ic);
+                    outputs.add(ic);
+                }
+            }
+            for (Gob gob : Finder.findGobs(area, new NAlias("stockpile"))) {
+                outputs.add(new Pile(gob));
+            }
+            if (outputs.isEmpty()) {
+                outputs.add(new Pile(null));
+            }
+        }
         return outputs;
+    }
+
+    /**
+     * Every area (other than one whose id is in {@code excludeAreaIds}) configured to accept
+     * {@code item} as a PUT target in a plain container, nearest first - a fresh, unrestricted
+     * scan, independent of the per-item nearest-area cache ({@link #outAreas}/{@link
+     * #getOutAreas}), which keeps only a single (nearest) area per quality threshold and so hides
+     * any farther zone set up for the same item. Used as a last-resort fallback once the nearest
+     * zone the normal routing already knows about is full, even after {@link
+     * nurgling.actions.ReplaceLowestQuality}.
+     * <p>
+     * Container-only, like the rest of this fallback: a zone explicitly marked as a barter
+     * stand or barrel is skipped, since neither holds discrete, quality-comparable copies the
+     * same way a container's "Space" does.
+     */
+    public ArrayList<String> findAlternateOutAreas(String item, Set<String> excludeAreaIds) {
+        ArrayList<String> result = new ArrayList<>();
+        if(gui == null || gui.map == null)
+            return result;
+        TreeMap<Double, ArrayList<NArea>> byDist = new TreeMap<>();
+        for(Integer id : gui.map.nols.keySet())
+        {
+            if(Thread.currentThread().isInterrupted())
+                break;
+            if(id <= 0)
+                continue;
+            NArea cand = gui.map.glob.map.areas.get(id);
+            if(cand == null || cand.isDisabled() || !cand.containOut(item))
+                continue;
+            if(excludeAreaIds.contains(String.valueOf(cand.id)))
+                continue;
+            NArea.Ingredient ingredient = cand.getOutput(item);
+            if(ingredient != null && ingredient.type != NArea.Ingredient.Type.CONTAINER)
+                continue;
+            double dist = getDistanceToArea(cand, gui);
+            if(dist == Double.MAX_VALUE)
+                continue;
+            byDist.computeIfAbsent(dist, k -> new ArrayList<>()).add(cand);
+        }
+        for(ArrayList<NArea> group : byDist.values())
+        {
+            for(NArea cand : group)
+            {
+                String id = String.valueOf(cand.id);
+                areas.put(id, cand);
+                result.add(id);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * {@code areaId}'s own configured PUT threshold for {@code item} (the {@code th} set via the
+     * area's PUT drag-n-drop config), or 1 (no threshold) if unset or the area/item isn't known.
+     */
+    public double getOutThreshold(String areaId, String item) {
+        if(areaId == null)
+            return 1;
+        NArea area = areas.get(areaId);
+        if(area == null)
+            return 1;
+        NArea.Ingredient ingredient = area.getOutput(item);
+        return (ingredient != null && ingredient.th != -1) ? Math.abs((double) ingredient.th) : 1;
     }
 
     public static class Workstation
