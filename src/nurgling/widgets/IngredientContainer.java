@@ -146,6 +146,10 @@ public class IngredientContainer extends BaseIngredientContainer {
             IconItem it = icons.get(icons.size()-1);
             it.type = NArea.Ingredient.Type.valueOf((String)res.get("type"));
         }
+        if(res.has("replace")) {
+            IconItem it = icons.get(icons.size()-1);
+            it.replace = (Boolean)res.get("replace");
+        }
     }
 
     @Override
@@ -265,6 +269,29 @@ public class IngredientContainer extends BaseIngredientContainer {
         for(int i = 0; i < data.length(); i++) {
             if(((JSONObject) data.get(i)).get("name").equals(name)) {
                 ((JSONObject) data.get(i)).remove("th");
+                markRoutingDirty();
+                NConfig.needAreasUpdate();
+                return;
+            }
+        }
+    }
+
+    /**
+     * PUT (out) only: when this item's target container is full, replace its lowest-quality
+     * copy with a higher-quality copy still stuck in the inventory instead of leaving the
+     * newcomer behind. See {@link nurgling.actions.ReplaceLowestQuality}.
+     */
+    public void setReplace(String name, boolean value) {
+        JSONArray data;
+        if(NUtils.getArea(id) == null) return;
+        if(type.equals("in"))
+            data = NUtils.getArea(id).jin;
+        else
+            data = NUtils.getArea(id).jout;
+
+        for(int i = 0; i < data.length(); i++) {
+            if(((JSONObject) data.get(i)).get("name").equals(name)) {
+                ((JSONObject) data.get(i)).put("replace", value);
                 markRoutingDirty();
                 NConfig.needAreasUpdate();
                 return;
