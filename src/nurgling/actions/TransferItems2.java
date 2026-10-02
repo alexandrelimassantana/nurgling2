@@ -153,12 +153,14 @@ public class TransferItems2 implements Action
     private void processAreaTransfers(String areaId, List<ItemTransfer> itemsForArea, NGameUI gui) throws InterruptedException {
         for (ItemTransfer itemTransfer : itemsForArea) {
             ArrayList<NContext.ObjectStorage> storages = cnt.getOutStorages(itemTransfer.itemName, itemTransfer.quality);
+            ArrayList<Container> triedContainers = new ArrayList<>();
             for (NContext.ObjectStorage output : storages) {
                 if (output instanceof NContext.Pile) {
                     new TransferToPiles(cnt.getRCArea(areaId), itemTransfer.itemName,
                         (int)itemTransfer.quality).run(gui);
                 }
                 if (output instanceof Container) {
+                    triedContainers.add((Container) output);
                     TreeMap<Double,String> areas = cnt.getOutAreas(itemTransfer.itemName);
                     TransferToContainer ttc = new TransferToContainer((Container) output, itemTransfer.itemName,
                         (int)itemTransfer.quality);
@@ -176,6 +178,72 @@ public class TransferItems2 implements Action
                         new NAlias(itemTransfer.itemName), (int) itemTransfer.quality).run(gui);
                 }
             }
+
+            // Every reachable output was tried and copies are still stuck in the inventory -
+            // if this area's PUT config for the item allows it, make room in each full container
+            // of the area in turn by bumping out its lowest-quality copies instead of leaving the
+            // newcomers behind. Tetris-shaped containers (drying frames etc.) place by sprite
+            // shape, not by quality, so a generic quality-based swap doesn't apply to them.
+            if (!triedContainers.isEmpty()
+                    && !getItemsExactMatch(itemTransfer.itemName, itemTransfer.quality).isEmpty()
+                    && cnt.isReplaceEnabled(areaId, itemTransfer.itemName)) {
+                for (Container candidate : triedContainers) {
+                    if (getItemsExactMatch(itemTransfer.itemName, itemTransfer.quality).isEmpty())
+                        break;
+                    if (!candidate.isFull() || candidate.getattr(Container.Tetris.class) != null)
+                        continue;
+                    new ReplaceLowestQuality(candidate, itemTransfer.itemName, itemTransfer.quality).run(gui);
+                }
+
+                // Replacing doesn't empty the inventory - it still leaves something stuck there:
+                // either the copy that lost the swap, or (if nothing in the container was
+                // actually worse) the whole newcomer. Give every other PUT zone configured for
+                // this item a shot before giving up on it entirely.
+                if (!getItemsExactMatch(itemTransfer.itemName, itemTransfer.quality).isEmpty()) {
+                    storeInAlternateAreas(itemTransfer.itemName, itemTransfer.quality, areaId, gui);
+                }
+            }
+        }
+    }
+
+    /**
+     * Last-resort fallback once the nearest zone the normal per-item routing cache already knows
+     * about ({@link NContext#getOutAreas}) is full even after a replace: sweeps every other area
+     * actually configured to accept {@code item} as a PUT target - farther zones the cache never
+     * surfaces because it keeps only the nearest area per quality threshold - nearest first,
+     * until either the inventory has nothing left to place or every alternate is exhausted too.
+     * Container-only (see {@link NContext#findAlternateOutAreas}); keeps trying until there are
+     * no more zones or no more copies of the item to store.
+     */
+    private void storeInAlternateAreas(String item, double quality, String excludeAreaId, NGameUI gui) throws InterruptedException {
+        TreeMap<Double,String> knownAreas = cnt.getOutAreas(item);
+        HashSet<String> tried = knownAreas != null ? new HashSet<>(knownAreas.values()) : new HashSet<>();
+        tried.add(excludeAreaId);
+
+        for (String areaId : cnt.findAlternateOutAreas(item, tried)) {
+            if (getItemsExactMatch(item, quality).isEmpty())
+                return;
+            storeInArea(areaId, item, quality, gui);
+        }
+    }
+
+    /**
+     * Attempts to place every remaining inventory copy of {@code item} into {@code areaId}'s PUT
+     * containers - the single-area equivalent of the main per-item routing loop above, for an
+     * ad-hoc area outside the normal cache. Containers only: this alternate area's own stockpiles
+     * are left alone, matching the rest of this replace/fallback feature. Respects this area's
+     * own configured PUT threshold for the item (which can differ from {@code quality}, the
+     * threshold of the zone that was actually full) - never moves in a copy neither threshold
+     * would accept.
+     */
+    private void storeInArea(String areaId, String item, double quality, NGameUI gui) throws InterruptedException {
+        double effectiveQuality = Math.max(quality, cnt.getOutThreshold(areaId, item));
+        for (NContext.ObjectStorage output : cnt.getOutStoragesForArea(areaId, item)) {
+            if (!(output instanceof Container))
+                continue;
+            if (getItemsExactMatch(item, effectiveQuality).isEmpty())
+                return;
+            new TransferToContainer((Container) output, item, (int) effectiveQuality).run(gui);
         }
     }
 
