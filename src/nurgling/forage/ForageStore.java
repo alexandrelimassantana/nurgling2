@@ -1,5 +1,6 @@
 package nurgling.forage;
 
+import nurgling.NConfig;
 import nurgling.tools.NFileUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -33,8 +34,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * and the file grows with every pick.
  */
 public class ForageStore {
-    /** A new find replaces an older find of the same item this close to it, in tiles. */
-    public static final int NEAR_TILES = 3;
+    /** Default for {@link #nearTiles()}. */
+    public static final int DEFAULT_NEAR_TILES = 3;
+    /** Upper bound for the range: generous, and keeps the tile-to-world multiplication far from overflow. */
+    public static final int MAX_NEAR_TILES = 1000;
+
+    /** A new find replaces an older find of the same item this close to it, in tiles; set in Map Tools. */
+    public static int nearTiles() {
+        Object val = NConfig.get(NConfig.Key.forageNearTiles);
+        int tiles = (val instanceof Number) ? ((Number) val).intValue() : DEFAULT_NEAR_TILES;
+        return Math.max(0, Math.min(MAX_NEAR_TILES, tiles));
+    }
+
+    public static void nearTiles(int tiles) {
+        NConfig.set(NConfig.Key.forageNearTiles, Math.max(0, Math.min(MAX_NEAR_TILES, tiles)));
+    }
 
     private static final ExecutorService WRITER = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "Forage-Finds-Writer");
@@ -77,21 +91,56 @@ public class ForageStore {
 
     // -------------------- Edits from this client --------------------
 
-    /** Record a find. An older find of the same item within {@link #NEAR_TILES} is replaced by it. */
-    public void add(ForageFind f) {
+    /**
+     * Record a find. Nearby finds of the same item (within {@link #nearTiles()}) are compared with it: if
+     * any of them is at least as good the new find is dropped and nothing moves; otherwise it is better
+     * than all of them and replaces them. Returns whether the find was recorded.
+     */
+    public boolean add(ForageFind f) {
+        return add(f, null);
+    }
+
+    /**
+     * As {@link #add(ForageFind)}. Finds in different grids cannot be compared by their offsets, so a
+     * find that sits just across a grid border would never be recognised as a neighbour; {@code worldPos}
+     * gives a find's position in this session's world (null while its grid is not loaded) and is used
+     * to compare such finds by distance instead.
+     */
+    public boolean add(ForageFind f, java.util.function.Function<ForageFind, haven.Coord2d> worldPos) {
+        int near = nearTiles();
+        haven.Coord2d fpos = (worldPos == null) ? null : worldPos.apply(f);
         synchronized(this) {
-            for(Iterator<ForageFind> it = finds.values().iterator(); it.hasNext(); ) {
-                ForageFind old = it.next();
-                if(!old.id.equals(f.id) && old.itemName.equals(f.itemName) && old.isNear(f, NEAR_TILES)) {
-                    it.remove();
-                    forget(old);
-                }
+            List<ForageFind> beaten = new ArrayList<>();
+            for(ForageFind old : finds.values()) {
+                if(old.id.equals(f.id) || !old.itemName.equals(f.itemName))
+                    continue;
+                if(!old.isNear(f, near) && !isNearAcrossGrids(old, f, fpos, worldPos, near))
+                    continue;
+                if(old.quality >= f.quality)
+                    return false;
+                beaten.add(old);
+            }
+            for(ForageFind old : beaten) {
+                finds.remove(old.id);
+                forget(old);
             }
             finds.put(f.id, f);
             pendingUpsert.put(f.id, ++generation);
             pendingDelete.remove(f.id);
         }
         changed();
+        return true;
+    }
+
+    private static boolean isNearAcrossGrids(ForageFind old, ForageFind f, haven.Coord2d fpos,
+                                             java.util.function.Function<ForageFind, haven.Coord2d> worldPos, int tiles) {
+        if(fpos == null || old.gridId == f.gridId)
+            return false;
+        haven.Coord2d opos = worldPos.apply(old);
+        if(opos == null)
+            return false;
+        return Math.abs(opos.x - fpos.x) <= tiles * haven.MCache.tilesz.x
+            && Math.abs(opos.y - fpos.y) <= tiles * haven.MCache.tilesz.y;
     }
 
     /** Delete a find, for everyone when the database is on. */

@@ -175,7 +175,23 @@ public class MapToolsWindow extends Window {
         record.settip(L10n.get("maptools.forage_record_tip"));
         record.state(nurgling.forage.ForageRecorder::enabled);
         record.set(nurgling.forage.ForageRecorder::enabled);
-        return y + record.sz.y + ROW_GAP;
+        y += record.sz.y + ROW_GAP;
+
+        Label rangeLbl = tab.add(new Label(L10n.get("maptools.forage_range")), UI.scale(14), y);
+        TextEntry rangeEntry = tab.add(new TextEntry(ENTRY_W, String.valueOf(nurgling.forage.ForageStore.nearTiles())) {
+            @Override
+            public void changed() {
+                super.changed();
+                try {
+                    nurgling.forage.ForageStore.nearTiles(Integer.parseInt(text().trim()));
+                } catch(NumberFormatException e) {
+                    // Keep the last valid range while the field is blank or half typed.
+                }
+            }
+        }, ENTRY_X, y);
+        rangeLbl.settip(L10n.get("maptools.forage_range_tip"));
+        rangeEntry.settip(L10n.get("maptools.forage_range_tip"));
+        return y + alignRow(y, rangeLbl, rangeEntry) + ROW_GAP;
     }
 
     /**

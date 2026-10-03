@@ -213,9 +213,10 @@ public class ForageRecorder {
         ForageFind f = new ForageFind(ForageFind.makeId(store.profile(), p.gridId, p.ox, p.oy, p.gobRes, p.gobId),
             p.gridId, p.ox, p.oy, p.gobRes, items.get(0).res, name, best, items.size(),
             System.currentTimeMillis(), gui.chrid, 0);
-        store.add(f);
-        System.out.println(String.format("[Forage] recorded %s q%.1f x%d at grid %d (%d,%d)",
-            name, best, items.size(), p.gridId, p.ox, p.oy));
+        boolean recorded = store.add(f, find -> gui.ui.sess.glob.map.gridToScene(Coord.of(find.ox, find.oy), find.gridId));
+        System.out.println(String.format("[Forage] %s %s q%.1f x%d at grid %d (%d,%d)",
+            recorded ? "recorded" : "skipped (a nearby find is as good or better):", name, best, items.size(),
+            p.gridId, p.ox, p.oy));
         return true;
     }
 
