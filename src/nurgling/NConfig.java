@@ -283,6 +283,8 @@ public class NConfig
         showForageFinds,
         recordForageFinds,
         forageMinQuality,
+        forageNearTiles,
+        forageKeepBest,
         // Localization
         language,
         // Calculators window: cheese rack calculator rows and stage-hour overrides (JSON string)
@@ -359,6 +361,8 @@ public class NConfig
         conf.put(Key.showForageFinds, true);
         conf.put(Key.recordForageFinds, false);
         conf.put(Key.forageMinQuality, 0);
+        conf.put(Key.forageNearTiles, 100);
+        conf.put(Key.forageKeepBest, false);
         conf.put(Key.prospectMarks, new ProspectMarkSettings());
         conf.put(Key.disableWinAnim, true);
         conf.put(Key.disableMenugridKeys, false);
