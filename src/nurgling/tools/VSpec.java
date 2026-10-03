@@ -3446,17 +3446,40 @@ public class VSpec {
 
     /**
      * Gets the seed name for a given tree resource path.
-     * 
+     * <p>
+     * A tree's product list mixes several harvest categories in no fixed order (e.g. maple is
+     * ["Maple Leaf", "Maple Samara", bark], olive is ["Olive Branch", "Olive", bark]), so the seed
+     * can't be picked by position. Instead every product that is a leaf, bough, branch or bark is
+     * skipped (same naming convention LpExplorer relies on), and what remains is the seed. Seasonal
+     * "Yesteryear's ..." variants are only used if no regular seed exists.
+     *
      * @param treePath The resource path of the tree (e.g., "gfx/terobjs/trees/appletree")
      * @return The seed name if found, null otherwise
      */
     public static String getSeedForTree(String treePath) {
         ArrayList<String> products = object.get(treePath);
-        if (products != null && !products.isEmpty()) {
-            // Return the last item in the list (typically the seed)
-            return products.get(0);
+        if (products == null) {
+            return null;
         }
-        return null;
+        String yesteryear = null;
+        for (String product : products) {
+            if (product == null || isNonSeedTreeProduct(product)) {
+                continue;
+            }
+            if (!product.startsWith(HarvestState.YESTERYEAR_PREFIX)) {
+                return product;
+            }
+            if (yesteryear == null) {
+                yesteryear = product;
+            }
+        }
+        return yesteryear;
+    }
+
+    private static boolean isNonSeedTreeProduct(String product) {
+        return product.contains("Leaf") || product.contains("Leaves")
+            || product.contains("Bough") || product.contains("Branch")
+            || HarvestState.isBarkProductName(product);
     }
 
     private static final class TreeProductIndex {
