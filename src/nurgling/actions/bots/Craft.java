@@ -272,6 +272,7 @@ public class Craft implements Action {
         } else {
             // Use stack-aware calculation for better inventory utilization
             for_craft = calculateMaxCraftsWithStacking(ncontext, freeSpace, left.get());
+            for_craft = maxCraftsByPlacement(ncontext, for_craft);
         }
 
 
@@ -850,6 +851,66 @@ public class Craft implements Action {
      * @param numCrafts Number of crafts to calculate for
      * @return Total number of inventory slots needed
      */
+    /** Inventory footprint of one item (width x height in cells). */
+    private static class Footprint {
+        final int w, h;
+        Footprint(int w, int h) { this.w = Math.max(1, w); this.h = Math.max(1, h); }
+        int cells() { return w * h; }
+    }
+
+    /**
+     * Footprint of the item a spec stands for. Large items (boards 1x5, blocks 2x1) take several
+     * cells each and don't stack, so counting one cell per item overfills the inventory. Known
+     * names win; otherwise the spec sprite's size is used, defaulting to 1x1.
+     */
+    private Footprint footprint(NMakewindow.Spec s, String itemName) {
+        if (itemName != null) {
+            if (itemName.startsWith("Board")) {
+                return new Footprint(1, 5);
+            }
+            if (itemName.startsWith("Block")) {
+                return new Footprint(2, 1);
+            }
+        }
+        try {
+            GSprite spr = s.sprite();
+            if (spr != null) {
+                Coord sz = spr.sz().div(UI.scale(32));
+                return new Footprint(sz.x, sz.y);
+            }
+        } catch (RuntimeException ignored) {
+            // resource not loaded yet - fall through to the 1x1 default
+        }
+        return new Footprint(1, 1);
+    }
+
+    /**
+     * Upper bound on crafts imposed by multi-cell, non-stacking inputs: free cells alone can be
+     * scattered such that a 1x5 board has nowhere contiguous to go.
+     */
+    private int maxCraftsByPlacement(NContext ncontext, int maxCrafts) throws InterruptedException {
+        NInventory inv = NUtils.getGameUI().getInventory();
+        int result = maxCrafts;
+        for (NMakewindow.Spec s : mwnd.inputs) {
+            if (s.ing != null && s.ing.isIgnored) {
+                continue;
+            }
+            String itemName = s.ing != null ? s.ing.name : s.name;
+            if (itemName == null || ncontext.isInBarrel(itemName)
+                    || StackSupporter.getFullStackSize(itemName) > 1) {
+                continue;
+            }
+            Footprint fp = footprint(s, itemName);
+            if (fp.cells() <= 1 || s.count <= 0) {
+                continue;
+            }
+            // calcNumberFreeCoord takes (rows, cols)
+            int fits = inv.getNumberFreeCoord(new Coord(fp.h, fp.w));
+            result = Math.min(result, Math.max(0, fits) / s.count);
+        }
+        return result;
+    }
+
     private int calculateSlotsNeeded(NContext ncontext, int numCrafts) {
         int totalSlots = 0;
         
@@ -872,7 +933,7 @@ public class Craft implements Action {
             
             // Calculate slots needed: ceil(itemsNeeded / stackSize)
             int slotsForItem = (itemsNeeded + stackSize - 1) / stackSize;
-            totalSlots += slotsForItem;
+            totalSlots += slotsForItem * footprint(s, itemName).cells();
         }
         
         // Calculate slots for outputs (if noTransfer is not enabled)
@@ -891,7 +952,7 @@ public class Craft implements Action {
                 
                 // Calculate slots needed: ceil(itemsProduced / stackSize)
                 int slotsForItem = (itemsProduced + stackSize - 1) / stackSize;
-                totalSlots += slotsForItem;
+                totalSlots += slotsForItem * footprint(s, itemName).cells();
             }
         }
         
