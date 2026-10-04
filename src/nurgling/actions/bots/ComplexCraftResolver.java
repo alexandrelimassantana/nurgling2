@@ -66,6 +66,13 @@ public class ComplexCraftResolver {
                 continue;
             }
 
+            if (input.getFallbackPresetIds().isEmpty()) {
+                // Nothing to fall back to, so there is nothing to plan: leave sourcing (and any
+                // shortfall) to the normal craft flow rather than failing the plan on a count
+                // that can't be acted on anyway.
+                continue;
+            }
+
             int required = input.getCount() * quantity;
             int available = ncontext.countAvailable(effectiveName, gui);
             if (available >= required) {
